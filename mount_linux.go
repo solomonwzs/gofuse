@@ -60,7 +60,8 @@ func getConnFromSocket(socket *os.File) (fd int, err error) {
 	return
 }
 
-func mount(mountpoint string) (f *os.File, err error) {
+func mount(mountpoint string, conf *MountConfig) (
+	f *os.File, err error) {
 	local, remote, err := newSocketpair()
 	if err != nil {
 		return
@@ -68,7 +69,7 @@ func mount(mountpoint string) (f *os.File, err error) {
 	defer local.Close()
 	defer remote.Close()
 
-	argv := []string{_CMD_FUSERMOUNT, mountpoint}
+	argv := []string{_CMD_FUSERMOUNT, "--", mountpoint}
 	proc, err := os.StartProcess(_CMD_FUSERMOUNT, argv,
 		&os.ProcAttr{
 			Env:   []string{"_FUSE_COMMFD=3"},
@@ -95,7 +96,7 @@ func mount(mountpoint string) (f *os.File, err error) {
 	return
 }
 
-func unmount(mountpoint string) (err error) {
+func umount(mountpoint string) (err error) {
 	cmd := exec.Command(_CMD_FUSERMOUNT, "-u", mountpoint)
 	output, err := cmd.CombinedOutput()
 	if err != nil {

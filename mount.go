@@ -60,18 +60,22 @@ func (fs *FileSystem) Close() error {
 		return errors.New("gofuse: file system was closed")
 	}
 	close(fs.end)
+	fs.kFilehandle.Close()
 	umount(fs.dir)
 
 	return nil
 }
 
 func (fs *FileSystem) serv() {
-	buffer := make([]byte, 0xffff)
+	buf := make([]byte, _FUSE_MAX_BUFFER_SIZE)
 	for {
-		n, err := fs.kFilehandle.Read(buffer)
+		n, err := fs.kFilehandle.Read(buf)
 		if err != nil {
 			return
 		}
-		parseFuseInHeader(buffer[:n])
+		if err := handleFuseRequest(buf[:n], fs.kFilehandle); err != nil {
+			fs.Close()
+			return
+		}
 	}
 }

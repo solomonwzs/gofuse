@@ -1,95 +1,98 @@
 package gofuse
 
+/*
+#cgo CFLAGS: -I${SRCDIR}/c
+
+#include <errno.h>
+#include <stdint.h>
+#include "fuse_kernel_7_26.h"
+
+#define SIZEOF_FUSE_IN_HEADER sizeof(struct fuse_in_header)
+#define SIZEOF_FUSE_OUT_HEADER sizeof(struct fuse_out_header)
+#define SIZEOF_FUSE_INIT_OUT sizeof(struct fuse_init_out)
+#define SIZEOF_FUSE_ATTR_OUT sizeof(struct fuse_attr_out)
+*/
+import "C"
 import (
 	"fmt"
+	"io"
+	"time"
 	"unsafe"
 )
 
-// fuse opcode
-const (
-	_FUSE_LOOKUP       = 1
-	_FUSE_FORGET       = 2 /* no reply */
-	_FUSE_GETATTR      = 3
-	_FUSE_SETATTR      = 4
-	_FUSE_READLINK     = 5
-	_FUSE_SYMLINK      = 6
-	_FUSE_MKNOD        = 8
-	_FUSE_MKDIR        = 9
-	_FUSE_UNLINK       = 10
-	_FUSE_RMDIR        = 11
-	_FUSE_RENAME       = 12
-	_FUSE_LINK         = 13
-	_FUSE_OPEN         = 14
-	_FUSE_READ         = 15
-	_FUSE_WRITE        = 16
-	_FUSE_STATFS       = 17
-	_FUSE_RELEASE      = 18
-	_FUSE_FSYNC        = 20
-	_FUSE_SETXATTR     = 21
-	_FUSE_GETXATTR     = 22
-	_FUSE_LISTXATTR    = 23
-	_FUSE_REMOVEXATTR  = 24
-	_FUSE_FLUSH        = 25
-	_FUSE_INIT         = 26
-	_FUSE_OPENDIR      = 27
-	_FUSE_READDIR      = 28
-	_FUSE_RELEASEDIR   = 29
-	_FUSE_FSYNCDIR     = 30
-	_FUSE_GETLK        = 31
-	_FUSE_SETLK        = 32
-	_FUSE_SETLKW       = 33
-	_FUSE_ACCESS       = 34
-	_FUSE_CREATE       = 35
-	_FUSE_INTERRUPT    = 36
-	_FUSE_BMAP         = 37
-	_FUSE_DESTROY      = 38
-	_FUSE_IOCTL        = 39
-	_FUSE_POLL         = 40
-	_FUSE_NOTIFY_REPLY = 41
-	_FUSE_BATCH_FORGET = 42
-	_FUSE_FALLOCATE    = 43
+func handleFuseRequest(buf []byte, w io.Writer) (err error) {
+	header := (*C.struct_fuse_in_header)(unsafe.Pointer(&buf[0]))
+	bodyRaw := buf[C.SIZEOF_FUSE_IN_HEADER:]
+	switch header.opcode {
+	case C.FUSE_INIT:
+		reqInit := (*C.struct_fuse_init_in)(unsafe.Pointer(&bodyRaw[0]))
+		err = handleFuseInit(header, reqInit, w)
+	case C.FUSE_GETATTR:
+		reqGetAttr := (*C.struct_fuse_getattr_in)(unsafe.Pointer(&bodyRaw[0]))
+		err = handleFuseGetAttr(header, reqGetAttr, w)
+	default:
+		fmt.Println(buf)
+	}
 
-	// CUSE specific operations
-	_CUSE_INIT = 4096
-)
-
-type fuseInHeader struct {
-	len     uint32
-	opcode  uint32
-	unique  uint64
-	nodeid  uint64
-	uid     uint32
-	gid     uint32
-	pid     uint32
-	padding uint32
+	return
 }
 
-type fuseOutHeader struct {
-	len    uint32
-	err    int32
-	unique uint64
+func handleFuseGetAttr(header *C.struct_fuse_in_header,
+	req *C.struct_fuse_getattr_in, w io.Writer) (err error) {
+	replyRaw := make([]byte, C.SIZEOF_FUSE_OUT_HEADER+C.SIZEOF_FUSE_ATTR_OUT)
+	rheader := (*C.struct_fuse_out_header)(unsafe.Pointer(&replyRaw[0]))
+	rbody := (*C.struct_fuse_attr_out)(unsafe.Pointer(
+		&replyRaw[C.SIZEOF_FUSE_OUT_HEADER]))
+	attr := &rbody.attr
+
+	rheader.len = C.uint32_t(len(replyRaw))
+	rheader.error = 0
+	rheader.unique = header.unique
+
+	rbody.attr_valid = 0
+	rbody.attr_valid_nsec = 0
+	rbody.dummy = req.dummy
+
+	attr.ino = 0
+	attr.size = 0
+	attr.blocks = 0
+	attr.atime = C.uint64_t(time.Now().Unix())
+	attr.mtime = C.uint64_t(time.Now().Unix())
+	attr.ctime = C.uint64_t(time.Now().Unix())
+	attr.mode = 0755
+	attr.nlink = 1
+
+	_, err = w.Write(replyRaw)
+	return
 }
 
-type fuseInitIn struct {
-	major        uint32
-	minor        uint32
-	maxReadahead uint32
-	flags        uint32
-}
+func handleFuseInit(header *C.struct_fuse_in_header,
+	req *C.struct_fuse_init_in, w io.Writer) (err error) {
+	if req.major != _FUSE_KERNEL_VERSION || req.minor < _FUSE_KERNEL_VERSION {
+		return fmt.Errorf(
+			"gofuse: error fuse kernel version, expect %d.%d, got: %d.%d",
+			_FUSE_KERNEL_VERSION, _FUSE_KERNEL_MINOR_VERSION,
+			req.major, req.minor)
+	}
 
-type fuseInitOut struct {
-	major    uint32
-	minor    uint32
-	unused   uint32
-	flags    uint32
-	maxRead  uint32
-	maxWrite uint32
-	devMajor uint32
-	devMinor uint32
-	spare    [10]uint32
-}
+	replyRaw := make([]byte, C.SIZEOF_FUSE_OUT_HEADER+C.SIZEOF_FUSE_INIT_OUT)
+	rheader := (*C.struct_fuse_out_header)(unsafe.Pointer(&replyRaw[0]))
+	rbody := (*C.struct_fuse_init_out)(unsafe.Pointer(
+		&replyRaw[C.SIZEOF_FUSE_OUT_HEADER]))
 
-func parseFuseInHeader(buf []byte) {
-	header := (*fuseInHeader)(unsafe.Pointer(&buf[0]))
-	fmt.Println(header, unsafe.Sizeof(*header))
+	rheader.len = C.uint32_t(len(replyRaw))
+	rheader.error = 0
+	rheader.unique = header.unique
+
+	rbody.major = _FUSE_KERNEL_VERSION
+	rbody.minor = _FUSE_KERNEL_MINOR_VERSION
+	rbody.max_readahead = _MAX_BUFFER_SIZE
+	rbody.flags = 0
+	rbody.max_background = 0
+	rbody.congestion_threshold = 0
+	rbody.max_write = _MAX_BUFFER_SIZE
+	rbody.time_gran = 0
+
+	_, err = w.Write(replyRaw)
+	return
 }

@@ -1,6 +1,7 @@
 package gofuse
 
 import (
+	"log"
 	"os"
 )
 
@@ -14,6 +15,7 @@ const (
 
 var (
 	_CMD_FUSERMOUNT string
+	_DLOG           = log.New(os.Stderr, "[gofuse] ", log.Lshortfile)
 )
 
 func init() {

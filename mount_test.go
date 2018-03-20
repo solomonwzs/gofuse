@@ -9,6 +9,12 @@ import (
 
 func TestMount(t *testing.T) {
 	dir := "/tmp/xx"
+	// st := syscall.Stat_t{}
+	// f, _ := os.Open(dir)
+	// syscall.Fstat(int(f.Fd()), &st)
+	// fmt.Printf("%+v\n", st)
+	// f.Close()
+
 	fs, err := NewFileSystem(dir, nil)
 	if err != nil {
 		t.Fatal(err)

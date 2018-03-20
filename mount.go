@@ -2,9 +2,9 @@ package gofuse
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"sync"
+	"time"
 )
 
 type FileSystem struct {
@@ -12,17 +12,6 @@ type FileSystem struct {
 	kFilehandle *os.File
 	end         chan struct{}
 	endLock     *sync.Mutex
-}
-
-func checkDir(dir string) (err error) {
-	stat, err := os.Stat(dir)
-	if err != nil {
-		return
-	} else if !stat.IsDir() {
-		err = fmt.Errorf("gofuse: mount point %s is not a directory", dir)
-		return
-	}
-	return
 }
 
 func NewFileSystem(dir string, conf *MountConfig) (fs *FileSystem, err error) {
@@ -67,15 +56,15 @@ func (fs *FileSystem) Close() error {
 }
 
 func (fs *FileSystem) serv() {
-	buf := make([]byte, _FUSE_MAX_BUFFER_SIZE)
 	for {
+		buf := make([]byte, _FUSE_MAX_BUFFER_SIZE)
+		time.Sleep(2 * time.Second)
 		n, err := fs.kFilehandle.Read(buf)
+		_DLOG.Println(n)
 		if err != nil {
 			return
 		}
-		if err := handleFuseRequest(buf[:n], fs.kFilehandle); err != nil {
-			fs.Close()
-			return
-		}
+
+		go handleFuseRequest(buf[:n], fs.kFilehandle)
 	}
 }

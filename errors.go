@@ -13,4 +13,5 @@ const (
 	ENOSYS    = syscall.ENOSYS
 	ENOTDIR   = syscall.ENOTDIR
 	ENOTEMPTY = syscall.ENOTEMPTY
+	EINTR     = syscall.EINTR
 )

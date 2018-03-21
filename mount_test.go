@@ -15,7 +15,7 @@ func TestMount(t *testing.T) {
 	// fmt.Printf("%+v\n", st)
 	// f.Close()
 
-	fs, err := NewFileSystem(dir, nil)
+	fs, err := NewFuseServer(dir, nil, FileSystemUnimplemented{})
 	if err != nil {
 		t.Fatal(err)
 	} else {

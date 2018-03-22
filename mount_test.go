@@ -5,6 +5,9 @@ import (
 	"os/signal"
 	"syscall"
 	"testing"
+
+	"github.com/solomonwzs/gofuse/filesystem/simplefs"
+	"github.com/solomonwzs/gofuse/fuse"
 )
 
 func TestMount(t *testing.T) {
@@ -15,7 +18,7 @@ func TestMount(t *testing.T) {
 	// fmt.Printf("%+v\n", st)
 	// f.Close()
 
-	fs, err := NewFuseServer(dir, nil, FileSystemUnimplemented{})
+	fs, err := fuse.NewFuseServer(dir, nil, simplefs.SimpleFS{})
 	if err != nil {
 		t.Fatal(err)
 	} else {

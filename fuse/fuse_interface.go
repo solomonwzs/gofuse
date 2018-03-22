@@ -1,9 +1,13 @@
-package gofuse
+package fuse
 
 type FuseOperations interface {
 	GetAttr(
 		ctx *FuseRequestContext,
-		path string,
 		attr *FuseAttr,
+	) (err error)
+
+	Open(
+		ctx *FuseRequestContext,
+		open *FuseOpenOut,
 	) (err error)
 }

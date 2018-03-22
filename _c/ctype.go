@@ -1,4 +1,4 @@
-package gofuse
+package fuse
 
 /*
 #include <errno.h>
@@ -10,6 +10,7 @@ package gofuse
 #define SIZEOF_FUSE_INIT_OUT sizeof(struct fuse_init_out)
 #define SIZEOF_FUSE_INIT_IN sizeof(struct fuse_init_in)
 #define SIZEOF_FUSE_ATTR_OUT sizeof(struct fuse_attr_out)
+#define SIZEOF_FUSE_OPEN_OUT sizeof(struct fuse_open_out)
 */
 import "C"
 
@@ -62,6 +63,10 @@ const (
 
 const (
 	S_IFDIR = C.S_IFDIR
+
+	FOPEN_DIRECT_IO   = C.FOPEN_DIRECT_IO
+	FOPEN_KEEP_CACHE  = C.FOPEN_KEEP_CACHE
+	FOPEN_NONSEEKABLE = C.FOPEN_NONSEEKABLE
 )
 
 const (
@@ -72,6 +77,8 @@ const (
 	_SIZEOF_FUSE_INIT_OUT = C.SIZEOF_FUSE_INIT_OUT
 
 	_SIZEOF_FUSE_ATTR_OUT = C.SIZEOF_FUSE_ATTR_OUT
+
+	_SIZEOF_FUSE_OPEN_OUT = C.SIZEOF_FUSE_OPEN_OUT
 )
 
 type (
@@ -83,4 +90,6 @@ type (
 	FuseGetattrIn   = C.struct_fuse_getattr_in
 	FuseAttrOut     = C.struct_fuse_attr_out
 	FuseAttr        = C.struct_fuse_attr
+	FuseOpenIn      = C.struct_fuse_open_in
+	FuseOpenOut     = C.struct_fuse_open_out
 )

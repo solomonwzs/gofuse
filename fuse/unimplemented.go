@@ -1,11 +1,17 @@
-package gofuse
+package fuse
 
 type FileSystemUnimplemented struct{}
 
 func (fs FileSystemUnimplemented) GetAttr(
 	ctx *FuseRequestContext,
-	path string,
 	attr *FuseAttr,
+) (err error) {
+	return ENOSYS
+}
+
+func (fs FileSystemUnimplemented) Open(
+	ctx *FuseRequestContext,
+	open *FuseOpenOut,
 ) (err error) {
 	return ENOSYS
 }

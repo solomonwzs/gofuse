@@ -1,4 +1,4 @@
-package gofuse
+package fuse
 
 import (
 	"errors"
@@ -167,6 +167,7 @@ func (fs *FuseServer) readLoop() {
 		}
 
 		header := (*FuseInHeader)(unsafe.Pointer(&buf[0]))
+		_DLOG.Println(header.Opcode)
 		switch header.Opcode {
 		case FUSE_INTERRUPT:
 			reqIntr := (*FuseInterruptIn)(
@@ -212,19 +213,19 @@ func (fs *FuseServer) handlerFuseInterrupt(
 func (fs *FuseServer) handlerFuseMessage(buf []byte, intrN *interrupNotice) {
 	header := (*FuseInHeader)(unsafe.Pointer(&buf[0]))
 	bodyRaw := buf[_SIZEOF_FUSE_IN_HEADER:]
-	ctx := newFuseRequestContext()
+	ctx := newFuseRequestContext(header)
 	switch header.Opcode {
 	case FUSE_GETATTR:
 		body := (*FuseGetattrIn)(unsafe.Pointer(&bodyRaw[0]))
-		go fs.hFuseGetAttr(ctx, header, body)
+		rbody := (*FuseAttrOut)(ctx.outBody())
+		go fs.hFuseGetAttr(ctx, header, body, rbody)
+	case FUSE_OPEN, FUSE_OPENDIR:
+		body := (*FuseOpenIn)(unsafe.Pointer(&bodyRaw[0]))
+		rbody := (*FuseOpenOut)(ctx.outBody())
+		go fs.hFuseOpen(ctx, header, body, rbody)
 	default:
 		replyRaw := make([]byte, _SIZEOF_FUSE_OUT_HEADER)
-
-		rheader := (*FuseOutHeader)(unsafe.Pointer(&replyRaw[0]))
-		rheader.Len = uint32(len(replyRaw))
-		rheader.Error = -int32(syscall.ENOSYS)
-		rheader.Unique = header.Unique
-
+		writeErrorRaw(replyRaw, header, syscall.ENOSYS)
 		fs.send <- replyRaw
 		return
 	}
@@ -234,39 +235,38 @@ func (fs *FuseServer) handlerFuseMessage(buf []byte, intrN *interrupNotice) {
 		case <-intrN.ch:
 			if intrN.unique == uint64(header.Unique) {
 				ctx.setDone(EINTR)
+
+				replyRaw := make([]byte, _SIZEOF_FUSE_OUT_HEADER)
+				writeErrorRaw(replyRaw, header, syscall.EINTR)
+				fs.send <- replyRaw
+
+				return
 			} else {
 				intrN = intrN.next
 			}
-		case <-ctx.done:
-			fs.send <- ctx.raw
+		case <-ctx.Done():
+			fs.send <- ctx.replyRaw()
 			return
 		}
 	}
 }
 
-func (fs *FuseServer) hFuseGetAttr(ctx *FuseRequestContext,
-	header *FuseInHeader, body *FuseGetattrIn) {
-	ctx.raw = make([]byte, _SIZEOF_FUSE_OUT_HEADER+_SIZEOF_FUSE_ATTR_OUT)
-	rbody := (*FuseAttrOut)(
-		unsafe.Pointer(&ctx.raw[_SIZEOF_FUSE_OUT_HEADER]))
-	attr := &rbody.Attr
-
-	err := fs.ops.GetAttr(ctx, "", attr)
-	if err != nil {
-		setErrorRaw(ctx, header, err)
-	} else {
-		rheader := (*FuseOutHeader)(unsafe.Pointer(&ctx.raw[0]))
-		rheader.Len = uint32(len(ctx.raw))
-		rheader.Error = 0
-		rheader.Unique = header.Unique
-	}
+func (fs *FuseServer) hFuseOpen(ctx *FuseRequestContext,
+	header *FuseInHeader, body *FuseOpenIn, rbody *FuseOpenOut) {
+	err := fs.ops.Open(ctx, rbody)
 	ctx.setDone(err)
 }
 
-func setErrorRaw(ctx *FuseRequestContext, header *FuseInHeader,
-	err error) {
-	ctx.raw = ctx.raw[:_SIZEOF_FUSE_OUT_HEADER]
-	rheader := (*FuseOutHeader)(unsafe.Pointer(&ctx.raw[0]))
+func (fs *FuseServer) hFuseGetAttr(ctx *FuseRequestContext,
+	header *FuseInHeader, body *FuseGetattrIn, rbody *FuseAttrOut) {
+	rbody.Valid = 0
+	attr := &rbody.Attr
+	err := fs.ops.GetAttr(ctx, attr)
+	ctx.setDone(err)
+}
+
+func writeErrorRaw(raw []byte, header *FuseInHeader, err error) {
+	rheader := (*FuseOutHeader)(unsafe.Pointer(&raw[0]))
 	rheader.Len = _SIZEOF_FUSE_OUT_HEADER
 	rheader.Unique = header.Unique
 	if errno, ok := err.(syscall.Errno); ok {
@@ -274,4 +274,5 @@ func setErrorRaw(ctx *FuseRequestContext, header *FuseInHeader,
 	} else {
 		rheader.Error = -int32(EIO)
 	}
+	return
 }

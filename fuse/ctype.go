@@ -1,7 +1,7 @@
 // Created by cgo -godefs - DO NOT EDIT
 // cgo -godefs ctype.go
 
-package gofuse
+package fuse
 
 const (
 	FUSE_LOOKUP		= 0x1
@@ -51,7 +51,11 @@ const (
 )
 
 const (
-	S_IFDIR = 0x4000
+	S_IFDIR	= 0x4000
+
+	FOPEN_DIRECT_IO		= 0x1
+	FOPEN_KEEP_CACHE	= 0x2
+	FOPEN_NONSEEKABLE	= 0x4
 )
 
 const (
@@ -62,6 +66,8 @@ const (
 	_SIZEOF_FUSE_INIT_OUT	= 0x40
 
 	_SIZEOF_FUSE_ATTR_OUT	= 0x68
+
+	_SIZEOF_FUSE_OPEN_OUT	= 0x10
 )
 
 type (
@@ -128,5 +134,14 @@ type (
 		Rdev		uint32
 		Blksize		uint32
 		Padding		uint32
+	}
+	FuseOpenIn	= struct {
+		Flags	uint32
+		Unused	uint32
+	}
+	FuseOpenOut	= struct {
+		Fh	uint64
+		Flags	uint32
+		Padding	uint32
 	}
 )

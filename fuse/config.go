@@ -1,4 +1,4 @@
-package gofuse
+package fuse
 
 type MountConfig struct {
 }

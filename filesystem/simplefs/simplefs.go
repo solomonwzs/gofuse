@@ -1,33 +1,36 @@
 package simplefs
 
-/*
-#cgo CFLAGS: -I${SRCDIR}/../../c
-
-#include <sys/stat.h>
-#include "fuse_kernel_7_26.h"
-*/
-import "C"
 import (
-	"github.com/solomonwzs/gofuse"
+	"time"
+
+	"github.com/solomonwzs/gofuse/fuse"
 )
 
 type SimpleFS struct {
-	gofuse.FileSystemUnimplemented
+	fuse.FileSystemUnimplemented
 }
 
-// func (fs SimpleFS) GetAttr(
-// 	ctx *gofuse.FuseRequestContext,
-// 	path string,
-// 	attr *C.struct_fuse_attr,
-// ) (err error) {
-// 	attr.ino = 0
-// 	attr.size = 4096
-// 	attr.blocks = 0
-// 	attr.atime = C.uint64_t(time.Now().Unix())
-// 	attr.mtime = C.uint64_t(time.Now().Unix())
-// 	attr.ctime = C.uint64_t(time.Now().Unix())
-// 	attr.mode = C.S_IFDIR | 0755
-// 	attr.nlink = 1
-// 	attr.blksize = 4096
-// 	return
-// }
+func (fs SimpleFS) GetAttr(
+	ctx *fuse.FuseRequestContext,
+	attr *fuse.FuseAttr,
+) (err error) {
+	attr.Ino = 0
+	attr.Size = 4096
+	attr.Blocks = 0
+	attr.Atime = uint64(time.Now().Unix())
+	attr.Mtime = uint64(time.Now().Unix())
+	attr.Ctime = uint64(time.Now().Unix())
+	attr.Mode = fuse.S_IFDIR | 0755
+	attr.Nlink = 1
+	attr.Blksize = 4096
+	return
+}
+
+func (fs SimpleFS) Open(
+	ctx *fuse.FuseRequestContext,
+	open *fuse.FuseOpenOut,
+) (err error) {
+	open.Fh = 1
+	open.Flags = fuse.FOPEN_DIRECT_IO | fuse.FOPEN_NONSEEKABLE
+	return
+}

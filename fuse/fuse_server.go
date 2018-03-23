@@ -143,16 +143,19 @@ func (fs *FuseServer) IsClosed() bool {
 	}
 }
 
-func (fs *FuseServer) Close() error {
+func (fs *FuseServer) Close() (err error) {
 	fs.endLock.Lock()
 	defer fs.endLock.Unlock()
 
 	if fs.IsClosed() {
 		return errors.New("gofuse: fuse server was closed")
 	}
+	if err = umount(fs.dir); err != nil {
+		return
+	}
+
 	close(fs.end)
-	fs.f.Close()
-	umount(fs.dir)
+	_DLOG.Println(fs.f.Close())
 
 	return nil
 }
@@ -162,6 +165,7 @@ func (fs *FuseServer) readLoop() {
 	for {
 		n, err := fs.f.Read(buf)
 		if err != nil {
+			_DLOG.Println(err)
 			fs.Close()
 			return
 		}
@@ -189,6 +193,7 @@ func (fs *FuseServer) sendLoop() {
 				break
 			}
 			if _, err := fs.f.Write(raw); err != nil {
+				_DLOG.Println(err)
 				fs.Close()
 				return
 			}
@@ -216,13 +221,41 @@ func (fs *FuseServer) handlerFuseMessage(buf []byte, intrN *interrupNotice) {
 	ctx := newFuseRequestContext(header)
 	switch header.Opcode {
 	case FUSE_GETATTR:
-		body := (*FuseGetattrIn)(unsafe.Pointer(&bodyRaw[0]))
-		rbody := (*FuseAttrOut)(ctx.outBody())
-		go fs.hFuseGetAttr(ctx, header, body, rbody)
+		in := (*FuseGetattrIn)(unsafe.Pointer(&bodyRaw[0]))
+		out := (*FuseAttrOut)(ctx.outBody())
+		go func() {
+			err := fs.ops.GetAttr(ctx, in, out)
+			ctx.setDone(err)
+		}()
 	case FUSE_OPEN, FUSE_OPENDIR:
-		body := (*FuseOpenIn)(unsafe.Pointer(&bodyRaw[0]))
-		rbody := (*FuseOpenOut)(ctx.outBody())
-		go fs.hFuseOpen(ctx, header, body, rbody)
+		in := (*FuseOpenIn)(unsafe.Pointer(&bodyRaw[0]))
+		out := (*FuseOpenOut)(ctx.outBody())
+		go func() {
+			err := fs.ops.Open(ctx, in, out)
+			ctx.setDone(err)
+		}()
+	case FUSE_READ, FUSE_READDIR:
+		in := (*FuseReadIn)(unsafe.Pointer(&bodyRaw[0]))
+		ctx.setExtBufferSizeLimit(in.Size)
+		go func() {
+			err := fs.ops.Read(ctx, in)
+			ctx.setDone(err)
+		}()
+	case FUSE_LOOKUP:
+		var i int
+		for i = 0; i < len(bodyRaw); i++ {
+			if bodyRaw[i] == '\x00' {
+				break
+			}
+		}
+		name := bodyRaw[:i]
+		out := (*FuseEntryOut)(ctx.outBody())
+		go func() {
+			err := fs.ops.Lookup(ctx, name, out)
+			ctx.setDone(err)
+		}()
+	case FUSE_DESTROY:
+		return
 	default:
 		replyRaw := make([]byte, _SIZEOF_FUSE_OUT_HEADER)
 		writeErrorRaw(replyRaw, header, syscall.ENOSYS)
@@ -247,22 +280,12 @@ func (fs *FuseServer) handlerFuseMessage(buf []byte, intrN *interrupNotice) {
 		case <-ctx.Done():
 			fs.send <- ctx.replyRaw()
 			return
+		case <-fs.end:
+			replyRaw := make([]byte, _SIZEOF_FUSE_OUT_HEADER)
+			writeErrorRaw(replyRaw, header, syscall.EINTR)
+			_DLOG.Println(fs.f.Write(replyRaw))
 		}
 	}
-}
-
-func (fs *FuseServer) hFuseOpen(ctx *FuseRequestContext,
-	header *FuseInHeader, body *FuseOpenIn, rbody *FuseOpenOut) {
-	err := fs.ops.Open(ctx, rbody)
-	ctx.setDone(err)
-}
-
-func (fs *FuseServer) hFuseGetAttr(ctx *FuseRequestContext,
-	header *FuseInHeader, body *FuseGetattrIn, rbody *FuseAttrOut) {
-	rbody.Valid = 0
-	attr := &rbody.Attr
-	err := fs.ops.GetAttr(ctx, attr)
-	ctx.setDone(err)
 }
 
 func writeErrorRaw(raw []byte, header *FuseInHeader, err error) {

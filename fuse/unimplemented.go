@@ -4,14 +4,31 @@ type FileSystemUnimplemented struct{}
 
 func (fs FileSystemUnimplemented) GetAttr(
 	ctx *FuseRequestContext,
-	attr *FuseAttr,
+	in *FuseGetattrIn,
+	out *FuseAttrOut,
 ) (err error) {
 	return ENOSYS
 }
 
 func (fs FileSystemUnimplemented) Open(
 	ctx *FuseRequestContext,
-	open *FuseOpenOut,
+	in *FuseOpenIn,
+	out *FuseOpenOut,
+) (err error) {
+	return ENOSYS
+}
+
+func (fs FileSystemUnimplemented) Read(
+	ctx *FuseRequestContext,
+	in *FuseReadIn,
+) (err error) {
+	return ENOSYS
+}
+
+func (fs FileSystemUnimplemented) Lookup(
+	ctx *FuseRequestContext,
+	name []byte,
+	out *FuseEntryOut,
 ) (err error) {
 	return ENOSYS
 }

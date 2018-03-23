@@ -16,6 +16,8 @@ func getReplyBodySize(header *FuseInHeader) (size int) {
 		size = _SIZEOF_FUSE_ATTR_OUT
 	case FUSE_OPENDIR, FUSE_OPEN:
 		size = _SIZEOF_FUSE_OPEN_OUT
+	case FUSE_LOOKUP:
+		size = _SIZEOF_FUSE_ENTRY_OUT
 	default:
 		size = 0
 	}
@@ -26,10 +28,13 @@ type FuseRequestContext struct {
 	kv     map[interface{}]interface{}
 	kvLock *sync.RWMutex
 
-	deadline  atomic.Value
-	raw       []byte
-	extBuffer *bytes.Buffer
-	extLock   *sync.Mutex
+	deadline atomic.Value
+	header   *FuseInHeader
+	raw      []byte
+
+	extBuffer    *bytes.Buffer
+	extSizeLimit atomic.Value
+	extLock      *sync.Mutex
 
 	done       chan struct{}
 	doneReason error
@@ -44,7 +49,9 @@ func newFuseRequestContext(header *FuseInHeader) (ctx *FuseRequestContext) {
 		kv:     make(map[interface{}]interface{}),
 		kvLock: &sync.RWMutex{},
 
-		raw:       raw,
+		header: header,
+		raw:    raw,
+
 		extBuffer: new(bytes.Buffer),
 		extLock:   &sync.Mutex{},
 
@@ -56,6 +63,14 @@ func newFuseRequestContext(header *FuseInHeader) (ctx *FuseRequestContext) {
 	rheader.Unique = header.Unique
 
 	return
+}
+
+func (ctx *FuseRequestContext) setExtBufferSizeLimit(size uint32) {
+	ctx.extSizeLimit.Store(size)
+}
+
+func (ctx *FuseRequestContext) Header() *FuseInHeader {
+	return ctx.header
 }
 
 func (ctx *FuseRequestContext) IsDone() bool {
@@ -72,9 +87,8 @@ func (ctx *FuseRequestContext) Deadline() (deadline time.Time, ok bool) {
 	return
 }
 
-func (ctx *FuseRequestContext) setDeadline(t time.Time) error {
+func (ctx *FuseRequestContext) setDeadline(t time.Time) {
 	ctx.deadline.Store(t)
-	return nil
 }
 
 func (ctx *FuseRequestContext) Done() <-chan struct{} {
@@ -128,16 +142,25 @@ func (ctx *FuseRequestContext) outBody() unsafe.Pointer {
 	return unsafe.Pointer(&ctx.raw[_SIZEOF_FUSE_OUT_HEADER])
 }
 
-func (ctx *FuseRequestContext) writeExtBuffer(p []byte) (n int, err error) {
+func (ctx *FuseRequestContext) Write(p []byte) (n int, err error) {
 	if ctx.IsDone() {
 		return 0, errors.New("gofuse: context was closed")
 	}
 
 	ctx.extLock.Lock()
 	defer ctx.extLock.Unlock()
-	n, err = ctx.extBuffer.Write(p)
 
-	return
+	size, ok := ctx.extSizeLimit.Load().(uint32)
+	extLen := uint32(ctx.extBuffer.Len())
+	if ok && extLen < size {
+		if uint32(len(p)) < size-extLen {
+			return ctx.extBuffer.Write(p)
+		} else {
+			return ctx.extBuffer.Write(p[:size-extLen])
+		}
+	} else {
+		return 0, errors.New("gofuse: buffer full")
+	}
 }
 
 func (ctx *FuseRequestContext) replyRaw() []byte {
@@ -163,6 +186,7 @@ func (ctx *FuseRequestContext) replyRaw() []byte {
 			rheader.Len = uint32(len(ctx.raw))
 			return ctx.raw
 		} else {
+			rheader.Len = uint32(len(ctx.raw) + extLen)
 			buf := make([]byte, len(ctx.raw)+extLen)
 			copy(buf, ctx.raw)
 			copy(buf[len(ctx.raw):], ctx.extBuffer.Bytes())

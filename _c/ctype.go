@@ -72,8 +72,16 @@ const (
 )
 
 const (
-	S_IFDIR FileModeType = C.S_IFDIR
+	S_IFMT   FileModeType = C.S_IFMT
+	S_IFDIR  FileModeType = C.S_IFDIR
+	S_IFCHR  FileModeType = C.S_IFCHR
+	S_IFBLK  FileModeType = C.S_IFBLK
+	S_IFREG  FileModeType = C.S_IFREG
+	S_IFLNK  FileModeType = C.S_IFLNK
+	S_IFSOCK FileModeType = C.S_IFSOCK
+)
 
+const (
 	FOPEN_DIRECT_IO   OpenOutFlagType = C.FOPEN_DIRECT_IO
 	FOPEN_KEEP_CACHE  OpenOutFlagType = C.FOPEN_KEEP_CACHE
 	FOPEN_NONSEEKABLE OpenOutFlagType = C.FOPEN_NONSEEKABLE
@@ -114,4 +122,5 @@ type (
 	FuseReadIn      C.struct_fuse_read_in
 	FuseDirent      C.struct_fuse_dirent
 	FuseEntryOut    C.struct_fuse_entry_out
+	FuseReleaseIn   C.struct_fuse_release_in
 )

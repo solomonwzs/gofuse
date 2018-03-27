@@ -254,7 +254,13 @@ func (fs *FuseServer) handlerFuseMessage(buf []byte, intrN *interrupNotice) {
 			err := fs.ops.Lookup(ctx, name, out)
 			ctx.setDone(err)
 		}()
-	case FUSE_DESTROY:
+	case FUSE_RELEASE, FUSE_RELEASEDIR:
+		in := (*FuseReleaseIn)(unsafe.Pointer(&bodyRaw[0]))
+		go func() {
+			err := fs.ops.Release(ctx, in)
+			ctx.setDone(err)
+		}()
+	case FUSE_DESTROY, FUSE_FORGET:
 		return
 	default:
 		replyRaw := make([]byte, _SIZEOF_FUSE_OUT_HEADER)

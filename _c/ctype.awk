@@ -49,6 +49,10 @@ struct_name == "FuseAttr" && field_name == "Mode" {
     type = "FileModeType"
 }
 
+struct_name == "FuseAttr" && field_name == "Rdev" {
+    type = "FileModeType"
+}
+
 struct_name == "FuseDirent" && field_name == "Type" {
     type = "DirentType"
 }

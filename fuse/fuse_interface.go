@@ -23,4 +23,9 @@ type FuseOperations interface {
 		name []byte,
 		out *FuseEntryOut,
 	) (err error)
+
+	Release(
+		ctx *FuseRequestContext,
+		in *FuseReleaseIn,
+	) (err error)
 }

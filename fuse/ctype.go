@@ -60,8 +60,16 @@ const (
 )
 
 const (
-	S_IFDIR FileModeType = 0x4000
+	S_IFMT   FileModeType = 0xf000
+	S_IFDIR  FileModeType = 0x4000
+	S_IFCHR  FileModeType = 0x2000
+	S_IFBLK  FileModeType = 0x6000
+	S_IFREG  FileModeType = 0x8000
+	S_IFLNK  FileModeType = 0xa000
+	S_IFSOCK FileModeType = 0xc000
+)
 
+const (
 	FOPEN_DIRECT_IO   OpenOutFlagType = 0x1
 	FOPEN_KEEP_CACHE  OpenOutFlagType = 0x2
 	FOPEN_NONSEEKABLE OpenOutFlagType = 0x4
@@ -149,7 +157,7 @@ type (
 		Nlink     uint32
 		Uid       uint32
 		Gid       uint32
-		Rdev      uint32
+		Rdev      FileModeType
 		Blksize   uint32
 		Padding   uint32
 	}
@@ -185,5 +193,11 @@ type (
 		Entry_valid_nsec uint32
 		Attr_valid_nsec  uint32
 		Attr             FuseAttr
+	}
+	FuseReleaseIn struct {
+		Fh            uint64
+		Flags         uint32
+		Release_flags uint32
+		Lock_owner    uint64
 	}
 )

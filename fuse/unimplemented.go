@@ -32,3 +32,10 @@ func (fs FileSystemUnimplemented) Lookup(
 ) (err error) {
 	return ENOSYS
 }
+
+func (fs FileSystemUnimplemented) Release(
+	ctx *FuseRequestContext,
+	in *FuseReleaseIn,
+) (err error) {
+	return nil
+}

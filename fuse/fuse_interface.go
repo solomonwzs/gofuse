@@ -1,5 +1,7 @@
 package fuse
 
+import "bytes"
+
 type FuseOperations interface {
 	GetAttr(
 		ctx *FuseRequestContext,
@@ -13,9 +15,16 @@ type FuseOperations interface {
 		out *FuseOpenOut,
 	) (err error)
 
+	ReadDir(
+		ctx *FuseRequestContext,
+		in *FuseReadIn,
+		out *FuseReadDirOut,
+	) (err error)
+
 	Read(
 		ctx *FuseRequestContext,
 		in *FuseReadIn,
+		out *bytes.Buffer,
 	) (err error)
 
 	Lookup(
@@ -27,5 +36,10 @@ type FuseOperations interface {
 	Release(
 		ctx *FuseRequestContext,
 		in *FuseReleaseIn,
+	) (err error)
+
+	Flush(
+		ctx *FuseRequestContext,
+		in *FuseFlushIn,
 	) (err error)
 }

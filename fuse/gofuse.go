@@ -6,6 +6,10 @@ import (
 )
 
 const (
+	ROOT_INODE_ID = 1
+)
+
+const (
 	_MAX_BUFFER_SIZE      = 65536
 	_FUSE_MAX_BUFFER_SIZE = _MAX_BUFFER_SIZE + 100
 

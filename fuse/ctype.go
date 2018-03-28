@@ -200,4 +200,10 @@ type (
 		Release_flags uint32
 		Lock_owner    uint64
 	}
+	FuseFlushIn struct {
+		Fh      uint64
+		Unused  uint32
+		Padding uint32
+		Owner   uint64
+	}
 )

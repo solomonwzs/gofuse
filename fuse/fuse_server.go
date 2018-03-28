@@ -1,6 +1,7 @@
 package fuse
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"os"
@@ -234,11 +235,28 @@ func (fs *FuseServer) handlerFuseMessage(buf []byte, intrN *interrupNotice) {
 			err := fs.ops.Open(ctx, in, out)
 			ctx.setDone(err)
 		}()
-	case FUSE_READ, FUSE_READDIR:
+	case FUSE_READDIR:
 		in := (*FuseReadIn)(unsafe.Pointer(&bodyRaw[0]))
-		ctx.setExtBufferSizeLimit(in.Size)
+		out := new(FuseReadDirOut)
 		go func() {
-			err := fs.ops.Read(ctx, in)
+			err := fs.ops.ReadDir(ctx, in, out)
+			if err == nil {
+				ctx.setExtRaw(out.raw(in.Size))
+			}
+			ctx.setDone(err)
+		}()
+	case FUSE_READ:
+		in := (*FuseReadIn)(unsafe.Pointer(&bodyRaw[0]))
+		out := new(bytes.Buffer)
+		go func() {
+			err := fs.ops.Read(ctx, in, out)
+			if err == nil {
+				raw := out.Bytes()
+				if uint32(len(raw)) > in.Size {
+					raw = raw[:in.Size]
+				}
+				ctx.setExtRaw(raw)
+			}
 			ctx.setDone(err)
 		}()
 	case FUSE_LOOKUP:

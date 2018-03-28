@@ -31,10 +31,7 @@ type FuseRequestContext struct {
 	deadline atomic.Value
 	header   *FuseInHeader
 	raw      []byte
-
-	extBuffer    *bytes.Buffer
-	extSizeLimit atomic.Value
-	extLock      *sync.Mutex
+	extRaw   []byte
 
 	done       chan struct{}
 	doneReason error
@@ -51,9 +48,7 @@ func newFuseRequestContext(header *FuseInHeader) (ctx *FuseRequestContext) {
 
 		header: header,
 		raw:    raw,
-
-		extBuffer: new(bytes.Buffer),
-		extLock:   &sync.Mutex{},
+		extRaw: nil,
 
 		done:       make(chan struct{}),
 		doneReason: nil,
@@ -63,10 +58,6 @@ func newFuseRequestContext(header *FuseInHeader) (ctx *FuseRequestContext) {
 	rheader.Unique = header.Unique
 
 	return
-}
-
-func (ctx *FuseRequestContext) setExtBufferSizeLimit(size uint32) {
-	ctx.extSizeLimit.Store(size)
 }
 
 func (ctx *FuseRequestContext) Header() *FuseInHeader {
@@ -89,6 +80,10 @@ func (ctx *FuseRequestContext) Deadline() (deadline time.Time, ok bool) {
 
 func (ctx *FuseRequestContext) setDeadline(t time.Time) {
 	ctx.deadline.Store(t)
+}
+
+func (ctx *FuseRequestContext) setExtRaw(raw []byte) {
+	ctx.extRaw = raw
 }
 
 func (ctx *FuseRequestContext) Done() <-chan struct{} {
@@ -142,27 +137,6 @@ func (ctx *FuseRequestContext) outBody() unsafe.Pointer {
 	return unsafe.Pointer(&ctx.raw[_SIZEOF_FUSE_OUT_HEADER])
 }
 
-func (ctx *FuseRequestContext) Write(p []byte) (n int, err error) {
-	if ctx.IsDone() {
-		return 0, errors.New("gofuse: context was closed")
-	}
-
-	ctx.extLock.Lock()
-	defer ctx.extLock.Unlock()
-
-	size, ok := ctx.extSizeLimit.Load().(uint32)
-	extLen := uint32(ctx.extBuffer.Len())
-	if ok && extLen < size {
-		if uint32(len(p)) < size-extLen {
-			return ctx.extBuffer.Write(p)
-		} else {
-			return ctx.extBuffer.Write(p[:size-extLen])
-		}
-	} else {
-		return 0, errors.New("gofuse: buffer full")
-	}
-}
-
 func (ctx *FuseRequestContext) replyRaw() []byte {
 	if !ctx.IsDone() {
 		return nil
@@ -179,18 +153,32 @@ func (ctx *FuseRequestContext) replyRaw() []byte {
 		return ctx.raw[:_SIZEOF_FUSE_OUT_HEADER]
 	} else {
 		rheader.Error = 0
-		ctx.extLock.Lock()
-		defer ctx.extLock.Unlock()
-
-		if extLen := ctx.extBuffer.Len(); extLen == 0 {
+		if extLen := len(ctx.extRaw); extLen == 0 {
 			rheader.Len = uint32(len(ctx.raw))
 			return ctx.raw
 		} else {
 			rheader.Len = uint32(len(ctx.raw) + extLen)
 			buf := make([]byte, len(ctx.raw)+extLen)
 			copy(buf, ctx.raw)
-			copy(buf[len(ctx.raw):], ctx.extBuffer.Bytes())
+			copy(buf[len(ctx.raw):], ctx.extRaw)
 			return buf
 		}
 	}
+}
+
+type FuseReadDirOut []DirentRaw
+
+func (out *FuseReadDirOut) AddDirentRaw(raw DirentRaw) {
+	*out = append(*out, raw)
+}
+
+func (out *FuseReadDirOut) raw(n uint32) []byte {
+	if n > uint32(len(*out)) {
+		n = uint32(len(*out))
+	}
+	buf := new(bytes.Buffer)
+	for i := uint32(0); i < n; i++ {
+		buf.Write((*out)[i])
+	}
+	return buf.Bytes()
 }

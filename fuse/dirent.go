@@ -2,8 +2,10 @@ package fuse
 
 import "unsafe"
 
+type DirentRaw []byte
+
 func NewFuseDirentRaw(ino uint64, offset uint64, typ DirentType,
-	name []byte) (raw []byte) {
+	name []byte) (raw DirentRaw) {
 	size := padding64bits(_SIZEOF_FUSE_DIRENT + len(name))
 	raw = make([]byte, size, size)
 

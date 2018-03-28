@@ -1,5 +1,7 @@
 package fuse
 
+import "bytes"
+
 type FileSystemUnimplemented struct{}
 
 func (fs FileSystemUnimplemented) GetAttr(
@@ -21,6 +23,15 @@ func (fs FileSystemUnimplemented) Open(
 func (fs FileSystemUnimplemented) Read(
 	ctx *FuseRequestContext,
 	in *FuseReadIn,
+	out *bytes.Buffer,
+) (err error) {
+	return ENOSYS
+}
+
+func (fs FileSystemUnimplemented) ReadDir(
+	ctx *FuseRequestContext,
+	in *FuseReadIn,
+	out *FuseReadDirOut,
 ) (err error) {
 	return ENOSYS
 }
@@ -36,6 +47,13 @@ func (fs FileSystemUnimplemented) Lookup(
 func (fs FileSystemUnimplemented) Release(
 	ctx *FuseRequestContext,
 	in *FuseReleaseIn,
+) (err error) {
+	return nil
+}
+
+func (fs FileSystemUnimplemented) Flush(
+	ctx *FuseRequestContext,
+	in *FuseFlushIn,
 ) (err error) {
 	return nil
 }

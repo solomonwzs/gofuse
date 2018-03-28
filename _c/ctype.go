@@ -18,10 +18,11 @@ import "C"
 import "syscall"
 
 type (
-	OpcodeType      uint32
-	OpenOutFlagType uint32
-	FileModeType    uint32
-	DirentType      uint32
+	OpcodeType       uint32
+	OpenOutFlagType  uint32
+	FileModeType     uint32
+	DirentType       uint32
+	SetAttrValidType uint32
 )
 
 const (
@@ -108,6 +109,20 @@ const (
 	_SIZEOF_FUSE_ENTRY_OUT  = C.SIZEOF_FUSE_ENTRY_OUT
 )
 
+const (
+	FATTR_MODE      SetAttrValidType = C.FATTR_MODE
+	FATTR_UID       SetAttrValidType = C.FATTR_UID
+	FATTR_GID       SetAttrValidType = C.FATTR_GID
+	FATTR_SIZE      SetAttrValidType = C.FATTR_SIZE
+	FATTR_ATIME     SetAttrValidType = C.FATTR_ATIME
+	FATTR_MTIME     SetAttrValidType = C.FATTR_MTIME
+	FATTR_FH        SetAttrValidType = C.FATTR_FH
+	FATTR_ATIME_NOW SetAttrValidType = C.FATTR_ATIME_NOW
+	FATTR_MTIME_NOW SetAttrValidType = C.FATTR_MTIME_NOW
+	FATTR_LOCKOWNER SetAttrValidType = C.FATTR_LOCKOWNER
+	FATTR_CTIME     SetAttrValidType = C.FATTR_CTIME
+)
+
 type (
 	FuseInHeader    C.struct_fuse_in_header
 	FuseOutHeader   C.struct_fuse_out_header
@@ -123,4 +138,6 @@ type (
 	FuseDirent      C.struct_fuse_dirent
 	FuseEntryOut    C.struct_fuse_entry_out
 	FuseReleaseIn   C.struct_fuse_release_in
+	FuseFlushIn     C.struct_fuse_flush_in
+	FuseSetAttrIn   C.struct_fuse_setattr_in
 )

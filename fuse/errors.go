@@ -15,4 +15,5 @@ const (
 	ENOTEMPTY = syscall.ENOTEMPTY
 	EINTR     = syscall.EINTR
 	EAGAIN    = syscall.EAGAIN
+	EPERM     = syscall.EPERM
 )

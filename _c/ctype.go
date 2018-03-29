@@ -13,6 +13,8 @@ package fuse
 #define SIZEOF_FUSE_OPEN_OUT sizeof(struct fuse_open_out)
 #define SIZEOF_FUSE_DIRENT sizeof(struct fuse_dirent)
 #define SIZEOF_FUSE_ENTRY_OUT sizeof(struct fuse_entry_out)
+#define SIZEOF_FUSE_WRITE_IN sizeof(struct fuse_write_in)
+#define SIZEOF_FUSE_WRITE_OUT sizeof(struct fuse_write_out)
 */
 import "C"
 import "syscall"
@@ -23,6 +25,7 @@ type (
 	FileModeType     uint32
 	DirentType       uint32
 	SetAttrValidType uint32
+	WriteFlagType    uint32
 )
 
 const (
@@ -107,6 +110,8 @@ const (
 	_SIZEOF_FUSE_OPEN_OUT   = C.SIZEOF_FUSE_OPEN_OUT
 	_SIZEOF_FUSE_DIRENT     = C.SIZEOF_FUSE_DIRENT
 	_SIZEOF_FUSE_ENTRY_OUT  = C.SIZEOF_FUSE_ENTRY_OUT
+	_SIZEOF_FUSE_WRITE_IN   = C.SIZEOF_FUSE_WRITE_IN
+	_SIZEOF_FUSE_WRITE_OUT  = C.SIZEOF_FUSE_WRITE_OUT
 )
 
 const (
@@ -121,6 +126,11 @@ const (
 	FATTR_MTIME_NOW SetAttrValidType = C.FATTR_MTIME_NOW
 	FATTR_LOCKOWNER SetAttrValidType = C.FATTR_LOCKOWNER
 	FATTR_CTIME     SetAttrValidType = C.FATTR_CTIME
+)
+
+const (
+	FWRITE_CACHE     WriteFlagType = C.FUSE_WRITE_CACHE
+	FWRITE_LOCKOWNER WriteFlagType = C.FUSE_WRITE_LOCKOWNER
 )
 
 type (
@@ -140,4 +150,6 @@ type (
 	FuseReleaseIn   C.struct_fuse_release_in
 	FuseFlushIn     C.struct_fuse_flush_in
 	FuseSetAttrIn   C.struct_fuse_setattr_in
+	FuseWriteIn     C.struct_fuse_write_in
+	FuseWriteOut    C.struct_fuse_write_out
 )

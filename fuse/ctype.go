@@ -6,10 +6,12 @@ package fuse
 import "syscall"
 
 type (
-	OpcodeType      uint32
-	OpenOutFlagType uint32
-	FileModeType    uint32
-	DirentType      uint32
+	OpcodeType       uint32
+	OpenOutFlagType  uint32
+	FileModeType     uint32
+	DirentType       uint32
+	SetAttrValidType uint32
+	WriteFlagType    uint32
 )
 
 const (
@@ -94,6 +96,27 @@ const (
 	_SIZEOF_FUSE_OPEN_OUT   = 0x10
 	_SIZEOF_FUSE_DIRENT     = 0x18
 	_SIZEOF_FUSE_ENTRY_OUT  = 0x80
+	_SIZEOF_FUSE_WRITE_IN   = 0x28
+	_SIZEOF_FUSE_WRITE_OUT  = 0x8
+)
+
+const (
+	FATTR_MODE      SetAttrValidType = 0x1
+	FATTR_UID       SetAttrValidType = 0x2
+	FATTR_GID       SetAttrValidType = 0x4
+	FATTR_SIZE      SetAttrValidType = 0x8
+	FATTR_ATIME     SetAttrValidType = 0x10
+	FATTR_MTIME     SetAttrValidType = 0x20
+	FATTR_FH        SetAttrValidType = 0x40
+	FATTR_ATIME_NOW SetAttrValidType = 0x80
+	FATTR_MTIME_NOW SetAttrValidType = 0x100
+	FATTR_LOCKOWNER SetAttrValidType = 0x200
+	FATTR_CTIME     SetAttrValidType = 0x400
+)
+
+const (
+	FWRITE_CACHE     WriteFlagType = 0x1
+	FWRITE_LOCKOWNER WriteFlagType = 0x2
 )
 
 type (
@@ -205,5 +228,36 @@ type (
 		Unused  uint32
 		Padding uint32
 		Owner   uint64
+	}
+	FuseSetAttrIn struct {
+		Valid     SetAttrValidType
+		Padding   uint32
+		Fh        uint64
+		Size      uint64
+		Owner     uint64
+		Atime     uint64
+		Mtime     uint64
+		Ctime     uint64
+		Atimensec uint32
+		Mtimensec uint32
+		Ctimensec uint32
+		Mode      FileModeType
+		Unused4   uint32
+		Uid       uint32
+		Gid       uint32
+		Unused5   uint32
+	}
+	FuseWriteIn struct {
+		Fh          uint64
+		Offset      uint64
+		Size        uint32
+		Write_flags WriteFlagType
+		Lock_owner  uint64
+		Flags       uint32
+		Padding     uint32
+	}
+	FuseWriteOut struct {
+		Size    uint32
+		Padding uint32
 	}
 )

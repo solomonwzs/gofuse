@@ -2,10 +2,33 @@ package fuse
 
 import "bytes"
 
+type FuseReadDirOut []DirentRaw
+
+func (out *FuseReadDirOut) AddDirentRaw(raw DirentRaw) {
+	*out = append(*out, raw)
+}
+
+func (out *FuseReadDirOut) raw(n uint32) []byte {
+	if n > uint32(len(*out)) {
+		n = uint32(len(*out))
+	}
+	buf := new(bytes.Buffer)
+	for i := uint32(0); i < n; i++ {
+		buf.Write((*out)[i])
+	}
+	return buf.Bytes()
+}
+
 type FuseOperations interface {
 	GetAttr(
 		ctx *FuseRequestContext,
 		in *FuseGetattrIn,
+		out *FuseAttrOut,
+	) (err error)
+
+	SetAttr(
+		ctx *FuseRequestContext,
+		in *FuseSetAttrIn,
 		out *FuseAttrOut,
 	) (err error)
 
@@ -27,9 +50,16 @@ type FuseOperations interface {
 		out *bytes.Buffer,
 	) (err error)
 
+	Write(
+		ctx *FuseRequestContext,
+		in *FuseWriteIn,
+		inRaw []byte,
+		out *FuseWriteOut,
+	) (err error)
+
 	Lookup(
 		ctx *FuseRequestContext,
-		name []byte,
+		inName []byte,
 		out *FuseEntryOut,
 	) (err error)
 

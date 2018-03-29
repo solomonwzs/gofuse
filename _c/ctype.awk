@@ -57,6 +57,18 @@ struct_name == "FuseDirent" && field_name == "Type" {
     type = "DirentType"
 }
 
+struct_name == "FuseSetAttrIn" && field_name == "Valid" {
+    type = "SetAttrValidType"
+}
+
+struct_name == "FuseSetAttrIn" && field_name == "Mode" {
+    type = "FileModeType"
+}
+
+struct_name == "FuseWriteIn" && field_name == "Write_flags" {
+    type = "WriteFlagType"
+}
+
 {
     if (field_name != "" && type != "") {
         print field_name, type

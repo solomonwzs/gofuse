@@ -1,7 +1,6 @@
 package fuse
 
 import (
-	"bytes"
 	"errors"
 	"sync"
 	"sync/atomic"
@@ -12,12 +11,14 @@ import (
 
 func getReplyBodySize(header *FuseInHeader) (size int) {
 	switch header.Opcode {
-	case FUSE_GETATTR:
+	case FUSE_GETATTR, FUSE_SETATTR:
 		size = _SIZEOF_FUSE_ATTR_OUT
 	case FUSE_OPENDIR, FUSE_OPEN:
 		size = _SIZEOF_FUSE_OPEN_OUT
 	case FUSE_LOOKUP:
 		size = _SIZEOF_FUSE_ENTRY_OUT
+	case FUSE_WRITE:
+		size = _SIZEOF_FUSE_WRITE_OUT
 	default:
 		size = 0
 	}
@@ -164,21 +165,4 @@ func (ctx *FuseRequestContext) replyRaw() []byte {
 			return buf
 		}
 	}
-}
-
-type FuseReadDirOut []DirentRaw
-
-func (out *FuseReadDirOut) AddDirentRaw(raw DirentRaw) {
-	*out = append(*out, raw)
-}
-
-func (out *FuseReadDirOut) raw(n uint32) []byte {
-	if n > uint32(len(*out)) {
-		n = uint32(len(*out))
-	}
-	buf := new(bytes.Buffer)
-	for i := uint32(0); i < n; i++ {
-		buf.Write((*out)[i])
-	}
-	return buf.Bytes()
 }

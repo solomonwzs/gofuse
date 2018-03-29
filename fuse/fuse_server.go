@@ -167,11 +167,15 @@ func (fs *FuseServer) readLoop() {
 		n, err := fs.f.Read(buf)
 		if err != nil {
 			_DLOG.Println(err)
-			fs.Close()
 			return
 		}
-
 		header := (*FuseInHeader)(unsafe.Pointer(&buf[0]))
+		if uint32(n) != header.Len {
+			replyRaw := make([]byte, _SIZEOF_FUSE_OUT_HEADER)
+			writeErrorRaw(replyRaw, header, syscall.EIO)
+			fs.send <- replyRaw
+		}
+
 		_DLOG.Println(header.Opcode)
 		switch header.Opcode {
 		case FUSE_INTERRUPT:
@@ -195,7 +199,6 @@ func (fs *FuseServer) sendLoop() {
 			}
 			if _, err := fs.f.Write(raw); err != nil {
 				_DLOG.Println(err)
-				fs.Close()
 				return
 			}
 		case <-fs.end:
@@ -233,6 +236,14 @@ func (fs *FuseServer) handlerFuseMessage(buf []byte, intrN *interrupNotice) {
 		out := (*FuseOpenOut)(ctx.outBody())
 		go func() {
 			err := fs.ops.Open(ctx, in, out)
+			ctx.setDone(err)
+		}()
+	case FUSE_WRITE:
+		in := (*FuseWriteIn)(unsafe.Pointer(&bodyRaw[0]))
+		inRaw := bodyRaw[_SIZEOF_FUSE_WRITE_IN:]
+		out := (*FuseWriteOut)(ctx.outBody())
+		go func() {
+			err := fs.ops.Write(ctx, in, inRaw, out)
 			ctx.setDone(err)
 		}()
 	case FUSE_READDIR:
@@ -276,6 +287,13 @@ func (fs *FuseServer) handlerFuseMessage(buf []byte, intrN *interrupNotice) {
 		in := (*FuseReleaseIn)(unsafe.Pointer(&bodyRaw[0]))
 		go func() {
 			err := fs.ops.Release(ctx, in)
+			ctx.setDone(err)
+		}()
+	case FUSE_SETATTR:
+		in := (*FuseSetAttrIn)(unsafe.Pointer(&bodyRaw[0]))
+		out := (*FuseAttrOut)(ctx.outBody())
+		go func() {
+			err := fs.ops.SetAttr(ctx, in, out)
 			ctx.setDone(err)
 		}()
 	case FUSE_DESTROY, FUSE_FORGET:

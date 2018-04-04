@@ -320,6 +320,7 @@ func (fs SimpleFS) Lookup(
 	inName []byte,
 	out *fuse.FuseEntryOut,
 ) (err error) {
+	_DLOG.Println(string(inName))
 	header := ctx.Header()
 	pIno, exist := _INODES[header.Nodeid]
 	if !exist {

@@ -19,10 +19,11 @@ const (
 
 var (
 	_CMD_FUSERMOUNT string
-	_DLOG           = log.New(os.Stderr, "[gofuse] ", log.Lshortfile)
+	_DLOG           *log.Logger
 )
 
 func init() {
+	_DLOG = log.New(os.Stderr, "[gofuse] ", log.Lshortfile)
 	if cmd := os.Getenv("CMD_FUSERMOUNT"); len(cmd) != 0 {
 		_CMD_FUSERMOUNT = cmd
 	} else {

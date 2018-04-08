@@ -1,6 +1,8 @@
 package simplefs
 
 import (
+	"sync/atomic"
+
 	"github.com/solomonwzs/gofuse/fuse"
 )
 
@@ -17,22 +19,41 @@ type FileNode struct {
 	file     File
 }
 
-type FileSystem struct {
-	root      *FileNode
-	nodeIndex map[uint64]*FileNode
+type FileTree struct {
+	root       *FileNode
+	curInodeID uint64
+	nodeIndex  map[uint64]*FileNode
 }
 
-func NewFileSystem(attr fuse.FuseAttr) *FileSystem {
+func NewFileTree(attr fuse.FuseAttr) *FileTree {
 	node := &FileNode{
 		Attr:     attr,
 		parent:   nil,
 		children: []*FileNode{},
 		file:     nil,
 	}
-	return &FileSystem{
-		root: node,
+	return &FileTree{
+		root:       node,
+		curInodeID: fuse.ROOT_INODE_ID,
 		nodeIndex: map[uint64]*FileNode{
 			fuse.ROOT_INODE_ID: node,
 		},
 	}
+}
+
+func (ft *FileTree) GetNode(ino uint64) *FileNode {
+	if n, exist := ft.nodeIndex[ino]; exist {
+		return n
+	} else {
+		return nil
+	}
+}
+
+func (ft *FileTree) NewNode() (n *FileNode) {
+	n = &FileNode{
+		Attr: fuse.FuseAttr{
+			Ino: atomic.AddUint64(&ft.curInodeID, 1),
+		},
+	}
+	return
 }

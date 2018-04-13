@@ -1,6 +1,8 @@
 package simplefs
 
 import (
+	"errors"
+	"sort"
 	"sync/atomic"
 	"time"
 
@@ -11,22 +13,128 @@ const (
 	_BLOCK_SIZE = 4096
 )
 
+var (
+	ERR_NOT_REG        = errors.New("it is not a regular file")
+	ERR_ILLEGAL_OPT    = errors.New("illegal operation")
+	ERR_NODE_NOT_EXIST = errors.New("node not exist")
+)
+
 type File interface {
 	Name() (name string)
+	Rename(name string) (err error)
 	ReadAt(b []byte, off int64) (n int, err error)
 	WriteAt(b []byte, off int64) (n int, err error)
 	Mode() fuse.FileModeType
 	Size() uint64
+	Resize(uint64) error
+}
+
+type rootFile struct{}
+
+func (r rootFile) Name() string { return "." }
+
+func (r rootFile) Rename(name string) error { return ERR_ILLEGAL_OPT }
+
+func (r rootFile) Mode() fuse.FileModeType { return fuse.S_IFDIR | 0755 }
+
+func (r rootFile) Size() uint64 { return 4096 }
+
+func (r rootFile) Resize(size uint64) error { return ERR_ILLEGAL_OPT }
+
+func (r rootFile) ReadAt(b []byte, off int64) (int, error) {
+	return 0, ERR_NOT_REG
+}
+
+func (r rootFile) WriteAt(b []byte, off int64) (int, error) {
+	return 0, ERR_NOT_REG
 }
 
 type FileNode struct {
-	Attr     fuse.FuseAttr
+	File
+	attr     fuse.FuseAttr
 	parent   *FileNode
 	children map[uint64]*FileNode
-	file     File
+}
+
+func (fn *FileNode) upateSize() {
+	size := fn.Size()
+	blocks := size / uint64(fn.attr.Blksize)
+	if size%uint64(fn.attr.Blksize) != 0 {
+		blocks += 1
+	}
+	fn.attr.Size = size
+	fn.attr.Blocks = blocks
+}
+
+func (fn *FileNode) Ino() uint64 { return fn.attr.Ino }
+
+func (fn *FileNode) Attr() fuse.FuseAttr { return fn.attr }
+
+func (fn *FileNode) SetAttr(in *fuse.FuseSetAttrIn) {
+	if in.Valid&fuse.FATTR_MODE != 0 {
+		fn.attr.Mode = in.Mode
+	}
+	if in.Valid&fuse.FATTR_UID != 0 {
+		fn.attr.Uid = in.Uid
+	}
+	if in.Valid&fuse.FATTR_GID != 0 {
+		fn.attr.Gid = in.Gid
+	}
+	if in.Valid&fuse.FATTR_SIZE != 0 {
+		fn.Resize(in.Size)
+		fn.attr.Size = fn.Size()
+	}
+	if in.Valid&fuse.FATTR_ATIME != 0 {
+		fn.attr.Atime = in.Atime
+		fn.attr.Atimensec = in.Atimensec
+	}
+	if in.Valid&fuse.FATTR_MTIME != 0 {
+		fn.attr.Mtime = in.Mtime
+		fn.attr.Mtimensec = in.Mtimensec
+	}
+	if in.Valid&fuse.FATTR_CTIME != 0 {
+		fn.attr.Ctime = in.Ctime
+		fn.attr.Ctimensec = in.Ctimensec
+	}
+}
+
+func (fn *FileNode) ReadAt(b []byte, off int64) (int, error) {
+	fn.attr.Atime = uint64(time.Now().Unix())
+	return fn.File.ReadAt(b, off)
+}
+
+func (fn *FileNode) WriteAt(b []byte, off int64) (int, error) {
+	now := uint64(time.Now().Unix())
+	fn.attr.Atime = now
+	fn.attr.Mtime = now
+	n, err := fn.File.WriteAt(b, off)
+	if err != nil {
+		fn.upateSize()
+	}
+	return n, err
+}
+
+func (fn *FileNode) Resize(size uint64) error {
+	err := fn.File.Resize(size)
+	if err != nil {
+		fn.upateSize()
+	}
+	return err
 }
 
 type FileNodeList []*FileNode
+
+func (fl FileNodeList) Len() int {
+	return len(fl)
+}
+
+func (fl FileNodeList) Swap(i, j int) {
+	fl[i], fl[j] = fl[j], fl[i]
+}
+
+func (fl FileNodeList) Less(i, j int) bool {
+	return fl[i].Name() < fl[j].Name()
+}
 
 type FileTree struct {
 	root       *FileNode
@@ -50,10 +158,10 @@ func NewFileTree() *FileTree {
 		Nlink:   1,
 	}
 	node := &FileNode{
-		Attr:     attr,
+		File:     rootFile{},
+		attr:     attr,
 		parent:   nil,
 		children: map[uint64]*FileNode{},
-		file:     nil,
 	}
 	return &FileTree{
 		root:       node,
@@ -62,18 +170,6 @@ func NewFileTree() *FileTree {
 			fuse.ROOT_INODE_ID: node,
 		},
 	}
-}
-
-func (fl FileNodeList) Len() int {
-	return len(fl)
-}
-
-func (fl FileNodeList) Swap(i, j int) {
-	fl[i], fl[j] = fl[j], fl[i]
-}
-
-func (fl FileNodeList) Less(i, j int) bool {
-	return fl[i].file.Name() < fl[j].file.Name()
 }
 
 func (ft *FileTree) GetNode(ino uint64) *FileNode {
@@ -110,11 +206,13 @@ func (ft *FileTree) NewNode(pIno uint64, f File) (n *FileNode) {
 			Nlink:   1,
 		}
 		n = &FileNode{
-			parent: parent,
-			Attr:   attr,
+			File:     f,
+			parent:   parent,
+			attr:     attr,
+			children: make(map[uint64]*FileNode),
 		}
-		parent.children[n.Attr.Ino] = n
-		ft.nodeIndex[n.Attr.Ino] = n
+		parent.children[n.attr.Ino] = n
+		ft.nodeIndex[n.attr.Ino] = n
 		return
 	}
 }
@@ -123,7 +221,14 @@ func (ft *FileTree) GetChildren(ino uint64) FileNodeList {
 	if parent := ft.GetNode(ino); parent == nil {
 		return nil
 	} else {
+		parent.attr.Atime = uint64(time.Now().Unix())
 		fl := FileNodeList(make([]*FileNode, len(parent.children)))
+		i := 0
+		for _, node := range parent.children {
+			fl[i] = node
+			i += 1
+		}
+		sort.Sort(fl)
 		return fl
 	}
 }

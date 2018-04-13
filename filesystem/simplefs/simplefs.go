@@ -6,139 +6,114 @@ import (
 	"os"
 	"os/user"
 	"strconv"
-	"time"
 
 	"github.com/solomonwzs/gofuse/fuse"
 )
 
-type simpleInode struct {
-	attr     fuse.FuseAttr
-	name     string
-	children []*simpleInode
+var (
+	_DLOG *log.Logger
+	_USER *user.User
+	_UID  uint32
+	_GID  uint32
+	_FT   *FileTree
+)
+
+type sampleFile struct {
+	buf  []byte
+	name string
+	mode fuse.FileModeType
 }
 
-var (
-	_DLOG   *log.Logger
-	_USER   *user.User
-	_UID    uint32
-	_GID    uint32
-	_INODES map[uint64]*simpleInode
-)
-
-const (
-	_N_ROOT = fuse.ROOT_INODE_ID + iota
-	_N_FILE_1
-	_N_FILE_2
-	_N_DIR_1
-	_N_DIR_2
-)
-
-var (
-	_FILES = map[uint64][]byte{
-		_N_FILE_1: []byte("0123456789"),
-		_N_FILE_2: []byte("qwertyuiopasdfghjkl"),
+func newSampleFile(buf []byte, name string, mode fuse.FileModeType) (
+	s *sampleFile) {
+	return &sampleFile{
+		buf:  buf,
+		name: name,
+		mode: mode,
 	}
-)
+}
+
+func (s *sampleFile) Name() string { return s.name }
+
+func (s *sampleFile) Mode() fuse.FileModeType { return s.mode }
+
+func (s *sampleFile) Size() uint64 {
+	if s.mode&fuse.S_IFDIR != 0 {
+		return 4096
+	} else {
+		return uint64(len(s.buf))
+	}
+}
+
+func (s *sampleFile) Resize(size uint64) error {
+	if s.mode&fuse.S_IFREG == 0 {
+		return ERR_ILLEGAL_OPT
+	}
+	if size <= s.Size() {
+		s.buf = s.buf[:size]
+	} else {
+		s.buf = append(s.buf, make([]byte, size-s.Size())...)
+	}
+	return nil
+}
+
+func (s *sampleFile) Rename(name string) error {
+	s.name = name
+	return nil
+}
+
+func (s *sampleFile) ReadAt(b []byte, off int64) (n int, err error) {
+	if s.mode&fuse.S_IFREG == 0 {
+		return 0, ERR_ILLEGAL_OPT
+	}
+	if off >= int64(len(s.buf)) {
+		return 0, nil
+	} else {
+		l := int64(len(b))
+		end := off + l
+		if end > int64(len(s.buf)) {
+			end = int64(len(s.buf))
+		}
+		n = copy(b, s.buf[off:end])
+		return
+	}
+}
+
+func (s *sampleFile) WriteAt(b []byte, off int64) (n int, err error) {
+	if s.mode&fuse.S_IFREG == 0 {
+		return 0, ERR_ILLEGAL_OPT
+	}
+	if off > int64(len(s.buf)) {
+		return 0, ERR_ILLEGAL_OPT
+	}
+
+	if off+int64(len(b)) > int64(len(s.buf)) {
+		s.buf = s.buf[:off]
+		s.buf = append(s.buf, b...)
+	} else {
+		copy(s.buf[off:], b)
+	}
+	return len(b), nil
+}
 
 func init() {
 	_DLOG = log.New(os.Stderr, "[simpleFS] ", log.Lshortfile)
 	_USER, _ = user.Current()
-	_INODES = make(map[uint64]*simpleInode)
 
 	id, _ := strconv.Atoi(_USER.Uid)
 	_UID = uint32(id)
 	id, _ = strconv.Atoi(_USER.Gid)
 	_GID = uint32(id)
 
-	now := uint64(time.Now().Unix())
-	_INODES[_N_ROOT] = &simpleInode{
-		name: "",
-		attr: fuse.FuseAttr{
-			Ino:     _N_ROOT,
-			Blocks:  1,
-			Size:    4096,
-			Blksize: 4096,
-			Atime:   now,
-			Mtime:   now,
-			Ctime:   now,
-			Uid:     _UID,
-			Gid:     _GID,
-			Mode:    fuse.S_IFDIR | 0755,
-			Nlink:   1,
-		},
-	}
-	_INODES[_N_FILE_1] = &simpleInode{
-		name: "file-0.txt",
-		attr: fuse.FuseAttr{
-			Ino:     _N_FILE_1,
-			Blocks:  1,
-			Size:    uint64(len(_FILES[_N_FILE_1])),
-			Blksize: 4096,
-			Atime:   now,
-			Mtime:   now,
-			Ctime:   now,
-			Uid:     _UID,
-			Gid:     _GID,
-			Mode:    fuse.S_IFREG | 0755,
-			Nlink:   1,
-		},
-	}
-	_INODES[_N_FILE_2] = &simpleInode{
-		name: "file-1.txt",
-		attr: fuse.FuseAttr{
-			Ino:     _N_FILE_2,
-			Blocks:  1,
-			Size:    uint64(len(_FILES[_N_FILE_1])),
-			Blksize: 4096,
-			Atime:   now,
-			Mtime:   now,
-			Ctime:   now,
-			Uid:     _UID,
-			Gid:     _GID,
-			Mode:    fuse.S_IFREG | 0755,
-			Nlink:   1,
-		},
-	}
-	_INODES[_N_DIR_1] = &simpleInode{
-		name: "hello",
-		attr: fuse.FuseAttr{
-			Ino:     _N_DIR_1,
-			Blocks:  1,
-			Size:    4096,
-			Blksize: 4096,
-			Atime:   now,
-			Mtime:   now,
-			Ctime:   now,
-			Uid:     _UID,
-			Gid:     _GID,
-			Mode:    fuse.S_IFDIR | 0755,
-			Nlink:   1,
-		},
-	}
-	_INODES[_N_DIR_2] = &simpleInode{
-		name: "world",
-		attr: fuse.FuseAttr{
-			Ino:     _N_DIR_2,
-			Blocks:  1,
-			Size:    4096,
-			Blksize: 4096,
-			Atime:   now,
-			Mtime:   now,
-			Ctime:   now,
-			Uid:     _UID,
-			Gid:     _GID,
-			Mode:    fuse.S_IFDIR | 0755,
-			Nlink:   1,
-		},
-	}
-	_INODES[_N_ROOT].children = []*simpleInode{
-		_INODES[_N_FILE_1],
-		_INODES[_N_DIR_1],
-		_INODES[_N_DIR_2],
-	}
-	_INODES[_N_DIR_2].children = []*simpleInode{
-		_INODES[_N_FILE_2],
-	}
+	_FT = NewFileTree()
+	dirHello := _FT.NewNode(fuse.ROOT_INODE_ID,
+		newSampleFile(nil, "hello", fuse.S_IFDIR|0755))
+	_FT.NewNode(fuse.ROOT_INODE_ID,
+		newSampleFile(nil, "world", fuse.S_IFDIR|0755))
+	_FT.NewNode(fuse.ROOT_INODE_ID,
+		newSampleFile([]byte("1234567"), "file0.txt", fuse.S_IFREG|0755))
+	_FT.NewNode(dirHello.Ino(),
+		newSampleFile([]byte("qwertyu"), "file1.txt", fuse.S_IFREG|0755))
 }
 
 type SimpleFS struct {
@@ -151,12 +126,12 @@ func (fs SimpleFS) GetAttr(
 	out *fuse.FuseAttrOut,
 ) (err error) {
 	header := ctx.Header()
-	ino, exist := _INODES[header.Nodeid]
-	if !exist {
+	node := _FT.GetNode(header.Nodeid)
+	if node == nil {
 		return fuse.ENOENT
 	}
 	out.Valid = 1
-	out.Attr = ino.attr
+	out.Attr = node.Attr()
 	return
 }
 
@@ -167,44 +142,13 @@ func (fs SimpleFS) SetAttr(
 ) (err error) {
 	header := ctx.Header()
 	_DLOG.Printf("%+v\n", header)
-	ino, exist := _INODES[header.Nodeid]
-	if !exist {
+	node := _FT.GetNode(header.Nodeid)
+	if node == nil {
 		return fuse.ENOENT
 	}
 
-	if in.Valid&fuse.FATTR_MODE != 0 {
-		ino.attr.Mode = in.Mode
-	}
-	if in.Valid&fuse.FATTR_UID != 0 {
-		ino.attr.Uid = in.Uid
-	}
-	if in.Valid&fuse.FATTR_GID != 0 {
-		ino.attr.Gid = in.Gid
-	}
-	if in.Valid&fuse.FATTR_SIZE != 0 {
-		ino.attr.Size = in.Size
-		f := _FILES[header.Nodeid]
-		if ino.attr.Size > uint64(len(f)) {
-			newRaw := make([]byte, ino.attr.Size)
-			copy(newRaw, f)
-			_FILES[header.Nodeid] = newRaw
-		} else {
-			_FILES[header.Nodeid] = f[:ino.attr.Size]
-		}
-	}
-	if in.Valid&fuse.FATTR_ATIME != 0 {
-		ino.attr.Atime = in.Atime
-		ino.attr.Atimensec = in.Atimensec
-	}
-	if in.Valid&fuse.FATTR_MTIME != 0 {
-		ino.attr.Mtime = in.Mtime
-		ino.attr.Mtimensec = in.Mtimensec
-	}
-	if in.Valid&fuse.FATTR_CTIME != 0 {
-		ino.attr.Ctime = in.Ctime
-		ino.attr.Ctimensec = in.Ctimensec
-	}
-	out.Attr = ino.attr
+	node.SetAttr(in)
+	out.Attr = node.Attr()
 
 	_DLOG.Printf("%+v\n", in)
 	return
@@ -226,29 +170,31 @@ func (fs SimpleFS) ReadDir(
 	out *fuse.FuseReadDirOut,
 ) (err error) {
 	header := ctx.Header()
-	ino, exist := _INODES[header.Nodeid]
-	if !exist {
+	node := _FT.GetNode(header.Nodeid)
+	if node == nil {
 		return fuse.ENOENT
 	}
-	if in.Offset >= uint64(len(ino.children)) {
+
+	children := _FT.GetChildren(node.Ino())
+
+	if in.Offset >= uint64(len(children)) {
 		return
 	}
-	ino.attr.Atime = uint64(time.Now().Unix())
 
-	m := uint32(len(ino.children))
+	m := uint32(len(children))
 	if m > in.Size {
 		m = in.Size
 	}
-	for dOffset, n := range ino.children[in.Offset:m] {
+	for dOffset, n := range children[in.Offset:m] {
 		var dt fuse.DirentType
 		if n.attr.Mode&fuse.S_IFDIR != 0 {
 			dt = fuse.DT_DIR
 		} else {
 			dt = fuse.DT_REG
 		}
-		_DLOG.Println(n.name)
+		_DLOG.Println(n.Name())
 		out.AddDirentRaw(fuse.NewFuseDirentRaw(
-			n.attr.Ino, uint64(dOffset+1)+in.Offset, dt, []byte(n.name)))
+			n.attr.Ino, uint64(dOffset+1)+in.Offset, dt, []byte(n.Name())))
 	}
 
 	return
@@ -260,24 +206,17 @@ func (fs SimpleFS) Read(
 	out *bytes.Buffer,
 ) (err error) {
 	header := ctx.Header()
-	ino, exist := _INODES[header.Nodeid]
-	if !exist {
+	node := _FT.GetNode(header.Nodeid)
+	if node == nil {
 		return fuse.ENOENT
 	}
-	if ino.attr.Mode&fuse.S_IFDIR != 0 {
-		return
-	}
-	if in.Offset > ino.attr.Size {
-		return
-	}
-	ino.attr.Atime = uint64(time.Now().Unix())
 
-	n := uint64(in.Size)
-	raw := _FILES[header.Nodeid]
-	if n > ino.attr.Size {
-		n = ino.attr.Size
+	raw := make([]byte, in.Size)
+	n, err := node.ReadAt(raw, int64(in.Offset))
+	if err != nil {
+		return
 	}
-	_, err = out.Write(raw[in.Offset:n])
+	_, err = out.Write(raw[:n])
 	return
 }
 
@@ -288,30 +227,15 @@ func (fs SimpleFS) Write(
 	out *fuse.FuseWriteOut,
 ) (err error) {
 	header := ctx.Header()
-	ino, exist := _INODES[header.Nodeid]
-	if !exist {
+	node := _FT.GetNode(header.Nodeid)
+	if node == nil {
 		return fuse.ENOENT
 	}
-	if ino.attr.Mode&fuse.S_IFDIR != 0 {
+	n, err := node.WriteAt(inRaw, int64(in.Offset))
+	if err != nil {
 		return
 	}
-	if in.Offset > ino.attr.Size {
-		return fuse.EPERM
-	}
-	ino.attr.Mtime = uint64(time.Now().Unix())
-
-	f := _FILES[header.Nodeid]
-	if in.Offset+uint64(in.Size) > ino.attr.Size {
-		f = f[:in.Offset]
-		f = append(f, inRaw...)
-		_FILES[header.Nodeid] = f
-	} else {
-		copy(f[in.Offset:], inRaw)
-	}
-	ino.attr.Size = uint64(len(f))
-
-	out.Size = in.Size
-
+	out.Size = uint32(n)
 	return
 }
 
@@ -322,16 +246,15 @@ func (fs SimpleFS) Lookup(
 ) (err error) {
 	_DLOG.Println(string(inName))
 	header := ctx.Header()
-	pIno, exist := _INODES[header.Nodeid]
-	if !exist {
+	node := _FT.GetNode(header.Nodeid)
+	if node == nil {
 		return fuse.ENOENT
 	}
 
-	var cIno *simpleInode
-	for _, cIno = range pIno.children {
-		if string(inName) == cIno.name {
-			out.Nodeid = cIno.attr.Ino
-			out.Attr = cIno.attr
+	for _, cIno := range _FT.GetChildren(node.Ino()) {
+		if string(inName) == cIno.Name() {
+			out.Nodeid = cIno.Ino()
+			out.Attr = cIno.Attr()
 			return
 		}
 	}

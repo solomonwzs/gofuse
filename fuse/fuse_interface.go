@@ -72,4 +72,11 @@ type FuseOperations interface {
 		ctx *FuseRequestContext,
 		in *FuseFlushIn,
 	) (err error)
+
+	Mknod(
+		ctx *FuseRequestContext,
+		in *FuseMknodIn,
+		inName []byte,
+		out *FuseEntryOut,
+	) (err error)
 }

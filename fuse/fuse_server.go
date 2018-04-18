@@ -34,6 +34,15 @@ func checkDir(dir string) (err error) {
 	return
 }
 
+func cutCString(buf []byte) (str []byte) {
+	for i := 0; i < len(buf); i++ {
+		if buf[i] == '\x00' {
+			return buf[:i]
+		}
+	}
+	return buf
+}
+
 func fuseInit(f *os.File) (err error) {
 	buf := make([]byte, _SIZEOF_FUSE_IN_HEADER+_SIZEOF_FUSE_INIT_IN)
 	n, err := f.Read(buf)
@@ -271,16 +280,10 @@ func (fs *FuseServer) handlerFuseMessage(buf []byte, intrN *interrupNotice) {
 			ctx.setDone(err)
 		}()
 	case FUSE_LOOKUP:
-		var i int
-		for i = 0; i < len(bodyRaw); i++ {
-			if bodyRaw[i] == '\x00' {
-				break
-			}
-		}
-		name := bodyRaw[:i]
+		inName := cutCString(bodyRaw)
 		out := (*FuseEntryOut)(ctx.outBody())
 		go func() {
-			err := fs.ops.Lookup(ctx, name, out)
+			err := fs.ops.Lookup(ctx, inName, out)
 			ctx.setDone(err)
 		}()
 	case FUSE_RELEASE, FUSE_RELEASEDIR:
@@ -298,6 +301,14 @@ func (fs *FuseServer) handlerFuseMessage(buf []byte, intrN *interrupNotice) {
 		}()
 	case FUSE_DESTROY, FUSE_FORGET:
 		return
+	case FUSE_MKNOD:
+		in := (*FuseMknodIn)(unsafe.Pointer(&bodyRaw[0]))
+		inName := cutCString(bodyRaw[_SIZEOF_FUSE_MKNOD_IN:])
+		out := (*FuseEntryOut)(ctx.outBody())
+		go func() {
+			err := fs.ops.Mknod(ctx, in, inName, out)
+			ctx.setDone(err)
+		}()
 	default:
 		replyRaw := make([]byte, _SIZEOF_FUSE_OUT_HEADER)
 		writeErrorRaw(replyRaw, header, syscall.ENOSYS)

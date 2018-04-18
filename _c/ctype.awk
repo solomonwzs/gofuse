@@ -69,6 +69,10 @@ struct_name == "FuseWriteIn" && field_name == "Write_flags" {
     type = "WriteFlagType"
 }
 
+struct_name == "FuseMknodIn" && field_name == "Mode" {
+    type = "FileModeType"
+}
+
 {
     if (field_name != "" && type != "") {
         print field_name, type

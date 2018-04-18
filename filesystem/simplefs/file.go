@@ -27,6 +27,8 @@ type File interface {
 	Mode() fuse.FileModeType
 	Size() uint64
 	Resize(uint64) error
+	Owner() (uid uint32, gid uint32)
+	SetOwner(uid uint32, gid uint32) error
 }
 
 type rootFile struct{}
@@ -39,7 +41,13 @@ func (r rootFile) Mode() fuse.FileModeType { return fuse.S_IFDIR | 0755 }
 
 func (r rootFile) Size() uint64 { return 4096 }
 
+func (r rootFile) Owner() (uint32, uint32) { return _UID, _GID }
+
 func (r rootFile) Resize(size uint64) error { return ERR_ILLEGAL_OPT }
+
+func (r rootFile) SetOwner(uid uint32, git uint32) error {
+	return ERR_ILLEGAL_OPT
+}
 
 func (r rootFile) ReadAt(b []byte, off int64) (int, error) {
 	return 0, ERR_NOT_REG
@@ -103,12 +111,22 @@ func (fn *FileNode) ReadAt(b []byte, off int64) (int, error) {
 	return fn.File.ReadAt(b, off)
 }
 
+func (fn *FileNode) SetOwner(uid uint32, gid uint32) error {
+	err := fn.File.SetOwner(uid, gid)
+	if err != nil {
+		fn.attr.Atime = uint64(time.Now().Unix())
+		fn.attr.Uid = uid
+		fn.attr.Gid = gid
+	}
+	return err
+}
+
 func (fn *FileNode) WriteAt(b []byte, off int64) (int, error) {
 	now := uint64(time.Now().Unix())
 	fn.attr.Atime = now
 	fn.attr.Mtime = now
 	n, err := fn.File.WriteAt(b, off)
-	if err != nil {
+	if err == nil {
 		fn.upateSize()
 	}
 	return n, err
@@ -117,6 +135,7 @@ func (fn *FileNode) WriteAt(b []byte, off int64) (int, error) {
 func (fn *FileNode) Resize(size uint64) error {
 	err := fn.File.Resize(size)
 	if err != nil {
+		fn.attr.Atime = uint64(time.Now().Unix())
 		fn.upateSize()
 	}
 	return err

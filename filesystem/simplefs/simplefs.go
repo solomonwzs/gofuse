@@ -22,14 +22,18 @@ type sampleFile struct {
 	buf  []byte
 	name string
 	mode fuse.FileModeType
+	uid  uint32
+	gid  uint32
 }
 
-func newSampleFile(buf []byte, name string, mode fuse.FileModeType) (
-	s *sampleFile) {
+func newSampleFile(name string, mode fuse.FileModeType,
+	uid uint32, gid uint32) (s *sampleFile) {
 	return &sampleFile{
-		buf:  buf,
+		buf:  []byte{},
 		name: name,
 		mode: mode,
+		uid:  uid,
+		gid:  gid,
 	}
 }
 
@@ -43,6 +47,16 @@ func (s *sampleFile) Size() uint64 {
 	} else {
 		return uint64(len(s.buf))
 	}
+}
+
+func (s *sampleFile) Owner() (uint32, uint32) {
+	return s.uid, s.gid
+}
+
+func (s *sampleFile) SetOwner(uid uint32, gid uint32) error {
+	s.uid = uid
+	s.gid = gid
+	return nil
 }
 
 func (s *sampleFile) Resize(size uint64) error {
@@ -107,13 +121,17 @@ func init() {
 
 	_FT = NewFileTree()
 	dirHello := _FT.NewNode(fuse.ROOT_INODE_ID,
-		newSampleFile(nil, "hello", fuse.S_IFDIR|0755))
+		newSampleFile("hello", fuse.S_IFDIR|0755, _UID, _GID))
 	_FT.NewNode(fuse.ROOT_INODE_ID,
-		newSampleFile(nil, "world", fuse.S_IFDIR|0755))
-	_FT.NewNode(fuse.ROOT_INODE_ID,
-		newSampleFile([]byte("1234567"), "file0.txt", fuse.S_IFREG|0755))
-	_FT.NewNode(dirHello.Ino(),
-		newSampleFile([]byte("qwertyu"), "file1.txt", fuse.S_IFREG|0755))
+		newSampleFile("world", fuse.S_IFDIR|0755, _UID, _GID))
+	f0 := _FT.NewNode(fuse.ROOT_INODE_ID,
+		newSampleFile("file0.txt", fuse.S_IFREG|0755,
+			_UID, _GID))
+	f1 := _FT.NewNode(dirHello.Ino(),
+		newSampleFile("file1.txt", fuse.S_IFREG|0755,
+			_UID, _GID))
+	f0.WriteAt([]byte("1234567890"), 0)
+	f1.WriteAt([]byte("qwertyuiop"), 0)
 }
 
 type SimpleFS struct {
@@ -244,7 +262,6 @@ func (fs SimpleFS) Lookup(
 	inName []byte,
 	out *fuse.FuseEntryOut,
 ) (err error) {
-	_DLOG.Println(string(inName))
 	header := ctx.Header()
 	node := _FT.GetNode(header.Nodeid)
 	if node == nil {
@@ -259,4 +276,26 @@ func (fs SimpleFS) Lookup(
 		}
 	}
 	return fuse.ENOENT
+}
+
+func (fs SimpleFS) Mknod(
+	ctx *fuse.FuseRequestContext,
+	in *fuse.FuseMknodIn,
+	inName []byte,
+	out *fuse.FuseEntryOut,
+) (err error) {
+	header := ctx.Header()
+	node := _FT.GetNode(header.Nodeid)
+	if node == nil {
+		return fuse.ENOENT
+	}
+
+	f := newSampleFile(string(inName), in.Mode,
+		header.Uid, header.Gid)
+	n := _FT.NewNode(header.Nodeid, f)
+
+	out.Nodeid = n.Ino()
+	out.Attr = n.Attr()
+
+	return
 }

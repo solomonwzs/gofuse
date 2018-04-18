@@ -74,3 +74,12 @@ func (fs FileSystemUnimplemented) Flush(
 ) (err error) {
 	return nil
 }
+
+func (fs FileSystemUnimplemented) Mknod(
+	ctx *FuseRequestContext,
+	in *FuseMknodIn,
+	inName []byte,
+	out *FuseEntryOut,
+) (err error) {
+	return ENOSYS
+}

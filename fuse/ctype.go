@@ -98,6 +98,7 @@ const (
 	_SIZEOF_FUSE_ENTRY_OUT  = 0x80
 	_SIZEOF_FUSE_WRITE_IN   = 0x28
 	_SIZEOF_FUSE_WRITE_OUT  = 0x8
+	_SIZEOF_FUSE_MKNOD_IN   = 0x10
 )
 
 const (
@@ -258,6 +259,12 @@ type (
 	}
 	FuseWriteOut struct {
 		Size    uint32
+		Padding uint32
+	}
+	FuseMknodIn struct {
+		Mode    FileModeType
+		Rdev    uint32
+		Umask   uint32
 		Padding uint32
 	}
 )

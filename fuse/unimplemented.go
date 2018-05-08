@@ -83,3 +83,12 @@ func (fs FileSystemUnimplemented) Mknod(
 ) (err error) {
 	return ENOSYS
 }
+
+func (fs FileSystemUnimplemented) Mkdir(
+	ctx *FuseRequestContext,
+	in *FuseMkdirIn,
+	inName []byte,
+	out *FuseEntryOut,
+) (err error) {
+	return ENOSYS
+}

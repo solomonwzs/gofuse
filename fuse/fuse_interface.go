@@ -79,4 +79,11 @@ type FuseOperations interface {
 		inName []byte,
 		out *FuseEntryOut,
 	) (err error)
+
+	Mkdir(
+		ctx *FuseRequestContext,
+		in *FuseMkdirIn,
+		inName []byte,
+		out *FuseEntryOut,
+	) (err error)
 }

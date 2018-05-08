@@ -18,7 +18,7 @@ func TestMount(t *testing.T) {
 	// fmt.Printf("%+v\n", st)
 	// f.Close()
 
-	fs, err := fuse.NewFuseServer(dir, nil, simplefs.SimpleFS{})
+	fs, err := fuse.NewFuseServer(dir, nil, simplefs.NewExampleSimpleFS())
 	if err != nil {
 		t.Fatal(err)
 	} else {

@@ -15,7 +15,7 @@ func getReplyBodySize(header *FuseInHeader) (size int) {
 		size = _SIZEOF_FUSE_ATTR_OUT
 	case FUSE_OPENDIR, FUSE_OPEN:
 		size = _SIZEOF_FUSE_OPEN_OUT
-	case FUSE_LOOKUP, FUSE_MKNOD:
+	case FUSE_LOOKUP, FUSE_MKNOD, FUSE_MKDIR:
 		size = _SIZEOF_FUSE_ENTRY_OUT
 	case FUSE_WRITE:
 		size = _SIZEOF_FUSE_WRITE_OUT

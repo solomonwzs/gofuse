@@ -73,6 +73,10 @@ struct_name == "FuseMknodIn" && field_name == "Mode" {
     type = "FileModeType"
 }
 
+struct_name == "FuseMkdirIn" && field_name == "Mode" {
+    type = "FileModeType"
+}
+
 {
     if (field_name != "" && type != "") {
         print field_name, type

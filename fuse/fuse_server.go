@@ -185,7 +185,7 @@ func (fs *FuseServer) readLoop() {
 			fs.send <- replyRaw
 		}
 
-		_DLOG.Println(header.Opcode)
+		_DLOG.Println("[", FUSE_OPCODE_MSG[header.Opcode], "]")
 		switch header.Opcode {
 		case FUSE_INTERRUPT:
 			reqIntr := (*FuseInterruptIn)(
@@ -307,6 +307,14 @@ func (fs *FuseServer) handlerFuseMessage(buf []byte, intrN *interrupNotice) {
 		out := (*FuseEntryOut)(ctx.outBody())
 		go func() {
 			err := fs.ops.Mknod(ctx, in, inName, out)
+			ctx.setDone(err)
+		}()
+	case FUSE_MKDIR:
+		in := (*FuseMkdirIn)(unsafe.Pointer(&bodyRaw[0]))
+		inName := cutCString(bodyRaw[_SIZEOF_FUSE_MKDIR_IN:])
+		out := (*FuseEntryOut)(ctx.outBody())
+		go func() {
+			err := fs.ops.Mkdir(ctx, in, inName, out)
 			ctx.setDone(err)
 		}()
 	default:

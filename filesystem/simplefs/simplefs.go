@@ -15,7 +15,6 @@ var (
 	_USER *user.User
 	_UID  uint32
 	_GID  uint32
-	_FT   *FileTree
 )
 
 type sampleFile struct {
@@ -118,33 +117,48 @@ func init() {
 	_UID = uint32(id)
 	id, _ = strconv.Atoi(_USER.Gid)
 	_GID = uint32(id)
-
-	_FT = NewFileTree()
-	dirHello := _FT.NewNode(fuse.ROOT_INODE_ID,
-		newSampleFile("hello", fuse.S_IFDIR|0755, _UID, _GID))
-	_FT.NewNode(fuse.ROOT_INODE_ID,
-		newSampleFile("world", fuse.S_IFDIR|0755, _UID, _GID))
-	f0 := _FT.NewNode(fuse.ROOT_INODE_ID,
-		newSampleFile("file0.txt", fuse.S_IFREG|0755,
-			_UID, _GID))
-	f1 := _FT.NewNode(dirHello.Ino(),
-		newSampleFile("file1.txt", fuse.S_IFREG|0755,
-			_UID, _GID))
-	f0.WriteAt([]byte("1234567890"), 0)
-	f1.WriteAt([]byte("qwertyuiop"), 0)
 }
 
 type SimpleFS struct {
 	fuse.FileSystemUnimplemented
+	FTree *FileTree
 }
 
-func (fs SimpleFS) GetAttr(
+func NewSimpleFS() *SimpleFS {
+	return &SimpleFS{
+		FTree: NewFileTree(),
+	}
+}
+
+func NewExampleSimpleFS() *SimpleFS {
+	fs := &SimpleFS{
+		FTree: NewFileTree(),
+	}
+
+	fs.FTree = NewFileTree()
+	dirHello := fs.FTree.NewNode(fuse.ROOT_INODE_ID,
+		newSampleFile("hello", fuse.S_IFDIR|0755, _UID, _GID))
+	fs.FTree.NewNode(fuse.ROOT_INODE_ID,
+		newSampleFile("world", fuse.S_IFDIR|0755, _UID, _GID))
+	f0 := fs.FTree.NewNode(fuse.ROOT_INODE_ID,
+		newSampleFile("file0.txt", fuse.S_IFREG|0755,
+			_UID, _GID))
+	f1 := fs.FTree.NewNode(dirHello.Ino(),
+		newSampleFile("file1.txt", fuse.S_IFREG|0755,
+			_UID, _GID))
+	f0.WriteAt([]byte("1234567890"), 0)
+	f1.WriteAt([]byte("qwertyuiop"), 0)
+
+	return fs
+}
+
+func (fs *SimpleFS) GetAttr(
 	ctx *fuse.FuseRequestContext,
 	in *fuse.FuseGetattrIn,
 	out *fuse.FuseAttrOut,
 ) (err error) {
 	header := ctx.Header()
-	node := _FT.GetNode(header.Nodeid)
+	node := fs.FTree.GetNode(header.Nodeid)
 	if node == nil {
 		return fuse.ENOENT
 	}
@@ -153,14 +167,13 @@ func (fs SimpleFS) GetAttr(
 	return
 }
 
-func (fs SimpleFS) SetAttr(
+func (fs *SimpleFS) SetAttr(
 	ctx *fuse.FuseRequestContext,
 	in *fuse.FuseSetAttrIn,
 	out *fuse.FuseAttrOut,
 ) (err error) {
 	header := ctx.Header()
-	_DLOG.Printf("%+v\n", header)
-	node := _FT.GetNode(header.Nodeid)
+	node := fs.FTree.GetNode(header.Nodeid)
 	if node == nil {
 		return fuse.ENOENT
 	}
@@ -168,11 +181,10 @@ func (fs SimpleFS) SetAttr(
 	node.SetAttr(in)
 	out.Attr = node.Attr()
 
-	_DLOG.Printf("%+v\n", in)
 	return
 }
 
-func (fs SimpleFS) Open(
+func (fs *SimpleFS) Open(
 	ctx *fuse.FuseRequestContext,
 	in *fuse.FuseOpenIn,
 	out *fuse.FuseOpenOut,
@@ -182,18 +194,18 @@ func (fs SimpleFS) Open(
 	return
 }
 
-func (fs SimpleFS) ReadDir(
+func (fs *SimpleFS) ReadDir(
 	ctx *fuse.FuseRequestContext,
 	in *fuse.FuseReadIn,
 	out *fuse.FuseReadDirOut,
 ) (err error) {
 	header := ctx.Header()
-	node := _FT.GetNode(header.Nodeid)
+	node := fs.FTree.GetNode(header.Nodeid)
 	if node == nil {
 		return fuse.ENOENT
 	}
 
-	children := _FT.GetChildren(node.Ino())
+	children := fs.FTree.GetChildren(node.Ino())
 
 	if in.Offset >= uint64(len(children)) {
 		return
@@ -210,7 +222,6 @@ func (fs SimpleFS) ReadDir(
 		} else {
 			dt = fuse.DT_REG
 		}
-		_DLOG.Println(n.Name())
 		out.AddDirentRaw(fuse.NewFuseDirentRaw(
 			n.attr.Ino, uint64(dOffset+1)+in.Offset, dt, []byte(n.Name())))
 	}
@@ -218,13 +229,13 @@ func (fs SimpleFS) ReadDir(
 	return
 }
 
-func (fs SimpleFS) Read(
+func (fs *SimpleFS) Read(
 	ctx *fuse.FuseRequestContext,
 	in *fuse.FuseReadIn,
 	out *bytes.Buffer,
 ) (err error) {
 	header := ctx.Header()
-	node := _FT.GetNode(header.Nodeid)
+	node := fs.FTree.GetNode(header.Nodeid)
 	if node == nil {
 		return fuse.ENOENT
 	}
@@ -238,14 +249,14 @@ func (fs SimpleFS) Read(
 	return
 }
 
-func (fs SimpleFS) Write(
+func (fs *SimpleFS) Write(
 	ctx *fuse.FuseRequestContext,
 	in *fuse.FuseWriteIn,
 	inRaw []byte,
 	out *fuse.FuseWriteOut,
 ) (err error) {
 	header := ctx.Header()
-	node := _FT.GetNode(header.Nodeid)
+	node := fs.FTree.GetNode(header.Nodeid)
 	if node == nil {
 		return fuse.ENOENT
 	}
@@ -257,42 +268,66 @@ func (fs SimpleFS) Write(
 	return
 }
 
-func (fs SimpleFS) Lookup(
+func (fs *SimpleFS) Lookup(
 	ctx *fuse.FuseRequestContext,
 	inName []byte,
 	out *fuse.FuseEntryOut,
 ) (err error) {
 	header := ctx.Header()
-	node := _FT.GetNode(header.Nodeid)
+	node := fs.FTree.GetNode(header.Nodeid)
 	if node == nil {
 		return fuse.ENOENT
 	}
 
-	for _, cIno := range _FT.GetChildren(node.Ino()) {
+	for _, cIno := range fs.FTree.GetChildren(node.Ino()) {
 		if string(inName) == cIno.Name() {
 			out.Nodeid = cIno.Ino()
 			out.Attr = cIno.Attr()
+			out.Entry_valid = 1
+			out.Attr_valid = 1
 			return
 		}
 	}
 	return fuse.ENOENT
 }
 
-func (fs SimpleFS) Mknod(
+func (fs *SimpleFS) Mknod(
 	ctx *fuse.FuseRequestContext,
 	in *fuse.FuseMknodIn,
 	inName []byte,
 	out *fuse.FuseEntryOut,
 ) (err error) {
 	header := ctx.Header()
-	node := _FT.GetNode(header.Nodeid)
+	node := fs.FTree.GetNode(header.Nodeid)
 	if node == nil {
 		return fuse.ENOENT
 	}
 
 	f := newSampleFile(string(inName), in.Mode,
 		header.Uid, header.Gid)
-	n := _FT.NewNode(header.Nodeid, f)
+	n := fs.FTree.NewNode(header.Nodeid, f)
+
+	out.Nodeid = n.Ino()
+	out.Attr = n.Attr()
+
+	return
+}
+
+func (fs *SimpleFS) Mkdir(
+	ctx *fuse.FuseRequestContext,
+	in *fuse.FuseMkdirIn,
+	inName []byte,
+	out *fuse.FuseEntryOut,
+) (err error) {
+	header := ctx.Header()
+	node := fs.FTree.GetNode(header.Nodeid)
+	if node == nil {
+		return fuse.ENOENT
+	}
+
+	f := newSampleFile(string(inName), in.Mode|fuse.S_IFDIR,
+		header.Uid, header.Gid)
+	n := fs.FTree.NewNode(header.Nodeid, f)
 
 	out.Nodeid = n.Ino()
 	out.Attr = n.Attr()

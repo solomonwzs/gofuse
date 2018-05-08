@@ -16,6 +16,7 @@ package fuse
 #define SIZEOF_FUSE_WRITE_IN sizeof(struct fuse_write_in)
 #define SIZEOF_FUSE_WRITE_OUT sizeof(struct fuse_write_out)
 #define SIZEOF_FUSE_MKNOD_IN sizeof(struct fuse_mknod_in)
+#define SIZEOF_FUSE_MKDIR_IN sizeof(struct fuse_mkdir_in)
 */
 import "C"
 import "syscall"
@@ -114,6 +115,7 @@ const (
 	_SIZEOF_FUSE_WRITE_IN   = C.SIZEOF_FUSE_WRITE_IN
 	_SIZEOF_FUSE_WRITE_OUT  = C.SIZEOF_FUSE_WRITE_OUT
 	_SIZEOF_FUSE_MKNOD_IN   = C.SIZEOF_FUSE_MKNOD_IN
+	_SIZEOF_FUSE_MKDIR_IN   = C.SIZEOF_FUSE_MKDIR_IN
 )
 
 const (
@@ -155,4 +157,5 @@ type (
 	FuseWriteIn     C.struct_fuse_write_in
 	FuseWriteOut    C.struct_fuse_write_out
 	FuseMknodIn     C.struct_fuse_mknod_in
+	FuseMkdirIn     C.struct_fuse_mkdir_in
 )

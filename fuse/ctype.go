@@ -99,6 +99,7 @@ const (
 	_SIZEOF_FUSE_WRITE_IN   = 0x28
 	_SIZEOF_FUSE_WRITE_OUT  = 0x8
 	_SIZEOF_FUSE_MKNOD_IN   = 0x10
+	_SIZEOF_FUSE_MKDIR_IN   = 0x8
 )
 
 const (
@@ -266,5 +267,9 @@ type (
 		Rdev    uint32
 		Umask   uint32
 		Padding uint32
+	}
+	FuseMkdirIn struct {
+		Mode  FileModeType
+		Umask uint32
 	}
 )

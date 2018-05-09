@@ -86,4 +86,14 @@ type FuseOperations interface {
 		inName []byte,
 		out *FuseEntryOut,
 	) (err error)
+
+	Unlink(
+		ctx *FuseRequestContext,
+		inName []byte,
+	) (err error)
+
+	Rmdir(
+		ctx *FuseRequestContext,
+		inName []byte,
+	) (err error)
 }

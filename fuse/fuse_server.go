@@ -317,6 +317,18 @@ func (fs *FuseServer) handlerFuseMessage(buf []byte, intrN *interrupNotice) {
 			err := fs.ops.Mkdir(ctx, in, inName, out)
 			ctx.setDone(err)
 		}()
+	case FUSE_UNLINK:
+		inName := cutCString(bodyRaw)
+		go func() {
+			err := fs.ops.Unlink(ctx, inName)
+			ctx.setDone(err)
+		}()
+	case FUSE_RMDIR:
+		inName := cutCString(bodyRaw)
+		go func() {
+			err := fs.ops.Rmdir(ctx, inName)
+			ctx.setDone(err)
+		}()
 	default:
 		replyRaw := make([]byte, _SIZEOF_FUSE_OUT_HEADER)
 		writeErrorRaw(replyRaw, header, syscall.ENOSYS)

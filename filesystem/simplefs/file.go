@@ -141,6 +141,20 @@ func (fn *FileNode) Resize(size uint64) error {
 	return err
 }
 
+func (fn *FileNode) AddLink(delta int) (uint32, error) {
+	if delta > 0 {
+		fn.attr.Nlink += uint32(delta)
+	} else {
+		d := uint32(-delta)
+		if fn.attr.Nlink >= d {
+			fn.attr.Nlink -= d
+		} else {
+			errors.New("error delta")
+		}
+	}
+	return fn.attr.Nlink, nil
+}
+
 type FileNodeList []*FileNode
 
 func (fl FileNodeList) Len() int {
@@ -234,6 +248,18 @@ func (ft *FileTree) NewNode(pIno uint64, f File) (n *FileNode) {
 		ft.nodeIndex[n.attr.Ino] = n
 		return
 	}
+}
+
+func (ft *FileTree) DelNode(ino uint64) error {
+	if node := ft.GetNode(ino); node == nil {
+		return errors.New("node not exist")
+	} else {
+		delete(ft.nodeIndex, ino)
+		if node.parent != nil {
+			delete(node.parent.children, ino)
+		}
+	}
+	return nil
 }
 
 func (ft *FileTree) GetChildren(ino uint64) FileNodeList {

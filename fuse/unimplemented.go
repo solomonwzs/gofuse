@@ -92,3 +92,17 @@ func (fs FileSystemUnimplemented) Mkdir(
 ) (err error) {
 	return ENOSYS
 }
+
+func (fs FileSystemUnimplemented) Unlink(
+	ctx *FuseRequestContext,
+	inName []byte,
+) (err error) {
+	return ENOSYS
+}
+
+func (fs FileSystemUnimplemented) Rmdir(
+	ctx *FuseRequestContext,
+	inName []byte,
+) (err error) {
+	return ENOSYS
+}

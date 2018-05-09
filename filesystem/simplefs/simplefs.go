@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/user"
 	"strconv"
+	"sync"
 
 	"github.com/solomonwzs/gofuse/fuse"
 )
@@ -121,30 +122,28 @@ func init() {
 
 type SimpleFS struct {
 	fuse.FileSystemUnimplemented
-	FTree *FileTree
+	FTree    *FileTree
+	treeLock *sync.Mutex
 }
 
 func NewSimpleFS() *SimpleFS {
 	return &SimpleFS{
-		FTree: NewFileTree(),
+		FTree:    NewFileTree(),
+		treeLock: &sync.Mutex{},
 	}
 }
 
 func NewExampleSimpleFS() *SimpleFS {
-	fs := &SimpleFS{
-		FTree: NewFileTree(),
-	}
-
-	fs.FTree = NewFileTree()
+	fs := NewSimpleFS()
 	dirHello := fs.FTree.NewNode(fuse.ROOT_INODE_ID,
 		newSampleFile("hello", fuse.S_IFDIR|0755, _UID, _GID))
 	fs.FTree.NewNode(fuse.ROOT_INODE_ID,
 		newSampleFile("world", fuse.S_IFDIR|0755, _UID, _GID))
 	f0 := fs.FTree.NewNode(fuse.ROOT_INODE_ID,
-		newSampleFile("file0.txt", fuse.S_IFREG|0755,
+		newSampleFile("file0.txt", fuse.S_IFREG|0644,
 			_UID, _GID))
 	f1 := fs.FTree.NewNode(dirHello.Ino(),
-		newSampleFile("file1.txt", fuse.S_IFREG|0755,
+		newSampleFile("file1.txt", fuse.S_IFREG|0644,
 			_UID, _GID))
 	f0.WriteAt([]byte("1234567890"), 0)
 	f1.WriteAt([]byte("qwertyuiop"), 0)
@@ -189,6 +188,12 @@ func (fs *SimpleFS) Open(
 	in *fuse.FuseOpenIn,
 	out *fuse.FuseOpenOut,
 ) (err error) {
+	header := ctx.Header()
+	node := fs.FTree.GetNode(header.Nodeid)
+	if node == nil {
+		return fuse.ENOENT
+	}
+
 	out.Fh = 1
 	out.Flags = fuse.FOPEN_DIRECT_IO | fuse.FOPEN_NONSEEKABLE
 	return
@@ -333,4 +338,61 @@ func (fs *SimpleFS) Mkdir(
 	out.Attr = n.Attr()
 
 	return
+}
+
+func (fs *SimpleFS) Unlink(
+	ctx *fuse.FuseRequestContext,
+	inName []byte,
+) (err error) {
+	header := ctx.Header()
+	node := fs.FTree.GetNode(header.Nodeid)
+	if node == nil {
+		return fuse.ENOENT
+	}
+	_DLOG.Println(string(inName))
+	for _, cIno := range fs.FTree.GetChildren(node.Ino()) {
+		if string(inName) == cIno.Name() {
+			if nlink, err := cIno.AddLink(-1); err != nil {
+				return fuse.EPERM
+			} else if nlink == 0 {
+				fs.FTree.DelNode(cIno.Ino())
+			}
+			return nil
+		}
+	}
+	return fuse.EPERM
+}
+
+func (fs *SimpleFS) Rmdir(
+	ctx *fuse.FuseRequestContext,
+	inName []byte,
+) (err error) {
+	header := ctx.Header()
+	node := fs.FTree.GetNode(header.Nodeid)
+	if node == nil {
+		return fuse.ENOENT
+	}
+	_DLOG.Println(string(inName))
+	for _, cIno := range fs.FTree.GetChildren(node.Ino()) {
+		if string(inName) == cIno.Name() {
+			fs.rmdir(cIno)
+			return nil
+		}
+	}
+	return fuse.EPERM
+}
+
+func (fs *SimpleFS) rmdir(node *FileNode) error {
+	for _, n := range fs.FTree.GetChildren(node.Ino()) {
+		if err := fs.rmdir(n); err != nil {
+			return err
+		}
+		if nlink, err := n.AddLink(-1); err != nil {
+			return err
+		} else if nlink == 0 {
+			fs.FTree.DelNode(n.Ino())
+		}
+	}
+	fs.FTree.DelNode(node.Ino())
+	return nil
 }

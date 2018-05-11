@@ -64,7 +64,7 @@ type FileNode struct {
 	children map[uint64]*FileNode
 }
 
-func (fn *FileNode) upateSize() {
+func (fn *FileNode) updateSize() {
 	size := fn.Size()
 	blocks := size / uint64(fn.attr.Blksize)
 	if size%uint64(fn.attr.Blksize) != 0 {
@@ -127,7 +127,7 @@ func (fn *FileNode) WriteAt(b []byte, off int64) (int, error) {
 	fn.attr.Mtime = now
 	n, err := fn.File.WriteAt(b, off)
 	if err == nil {
-		fn.upateSize()
+		fn.updateSize()
 	}
 	return n, err
 }
@@ -136,7 +136,7 @@ func (fn *FileNode) Resize(size uint64) error {
 	err := fn.File.Resize(size)
 	if err != nil {
 		fn.attr.Atime = uint64(time.Now().Unix())
-		fn.upateSize()
+		fn.updateSize()
 	}
 	return err
 }

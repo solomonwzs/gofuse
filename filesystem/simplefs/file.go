@@ -149,7 +149,7 @@ func (fn *FileNode) AddLink(delta int) (uint32, error) {
 		if fn.attr.Nlink >= d {
 			fn.attr.Nlink -= d
 		} else {
-			errors.New("error delta")
+			return 0, errors.New("error delta")
 		}
 	}
 	return fn.attr.Nlink, nil

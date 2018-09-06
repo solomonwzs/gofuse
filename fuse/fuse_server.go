@@ -120,6 +120,7 @@ func NewFuseServer(dir string, conf *MountConfig, ops FuseOperations) (
 	}
 
 	if err = fuseInit(f); err != nil {
+		umount(dir)
 		return
 	}
 

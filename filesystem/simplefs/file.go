@@ -100,10 +100,6 @@ func (fn *FileNode) SetAttr(in *fuse.FuseSetAttrIn) {
 		fn.attr.Mtime = in.Mtime
 		fn.attr.Mtimensec = in.Mtimensec
 	}
-	if in.Valid&fuse.FATTR_CTIME != 0 {
-		fn.attr.Ctime = in.Ctime
-		fn.attr.Ctimensec = in.Ctimensec
-	}
 }
 
 func (fn *FileNode) ReadAt(b []byte, off int64) (int, error) {
@@ -149,7 +145,7 @@ func (fn *FileNode) AddLink(delta int) (uint32, error) {
 		if fn.attr.Nlink >= d {
 			fn.attr.Nlink -= d
 		} else {
-			errors.New("error delta")
+			return 0, errors.New("error delta")
 		}
 	}
 	return fn.attr.Nlink, nil

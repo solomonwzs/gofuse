@@ -85,7 +85,6 @@ func fuseInit(f *os.File) (err error) {
 	rbody.Max_background = 0
 	rbody.Congestion_threshold = 0
 	rbody.Max_write = _MAX_BUFFER_SIZE
-	rbody.Time_gran = 0
 
 	_, err = f.Write(replyRaw)
 	return

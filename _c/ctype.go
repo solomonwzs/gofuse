@@ -3,7 +3,7 @@ package fuse
 /*
 #include <errno.h>
 #include <sys/stat.h>
-#include "fuse_kernel_7_26.h"
+#include "fuse_kernel_7_19.h"
 
 #define SIZEOF_FUSE_IN_HEADER sizeof(struct fuse_in_header)
 #define SIZEOF_FUSE_OUT_HEADER sizeof(struct fuse_out_header)
@@ -23,7 +23,7 @@ import "syscall"
 
 const (
 	FUSE_KERNEL_VERSION       = 7
-	FUSE_KERNEL_MINOR_VERSION = 26
+	FUSE_KERNEL_MINOR_VERSION = 19
 )
 
 type (
@@ -77,9 +77,6 @@ const (
 	FUSE_NOTIFY_REPLY OpcodeType = C.FUSE_NOTIFY_REPLY
 	FUSE_BATCH_FORGET OpcodeType = C.FUSE_BATCH_FORGET
 	FUSE_FALLOCATE    OpcodeType = C.FUSE_FALLOCATE
-	FUSE_READDIRPLUS  OpcodeType = C.FUSE_READDIRPLUS
-	FUSE_RENAME2      OpcodeType = C.FUSE_RENAME2
-	FUSE_LSEEK        OpcodeType = C.FUSE_LSEEK
 )
 
 const (
@@ -134,7 +131,6 @@ const (
 	FATTR_ATIME_NOW SetAttrValidType = C.FATTR_ATIME_NOW
 	FATTR_MTIME_NOW SetAttrValidType = C.FATTR_MTIME_NOW
 	FATTR_LOCKOWNER SetAttrValidType = C.FATTR_LOCKOWNER
-	FATTR_CTIME     SetAttrValidType = C.FATTR_CTIME
 )
 
 const (

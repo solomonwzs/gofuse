@@ -7,7 +7,7 @@ import "syscall"
 
 const (
 	FUSE_KERNEL_VERSION       = 7
-	FUSE_KERNEL_MINOR_VERSION = 26
+	FUSE_KERNEL_MINOR_VERSION = 19
 )
 
 type (
@@ -61,9 +61,6 @@ const (
 	FUSE_NOTIFY_REPLY OpcodeType = 0x29
 	FUSE_BATCH_FORGET OpcodeType = 0x2a
 	FUSE_FALLOCATE    OpcodeType = 0x2b
-	FUSE_READDIRPLUS  OpcodeType = 0x2c
-	FUSE_RENAME2      OpcodeType = 0x2d
-	FUSE_LSEEK        OpcodeType = 0x2e
 )
 
 const (
@@ -96,7 +93,7 @@ const (
 	_SIZEOF_FUSE_IN_HEADER  = 0x28
 	_SIZEOF_FUSE_OUT_HEADER = 0x10
 	_SIZEOF_FUSE_INIT_IN    = 0x10
-	_SIZEOF_FUSE_INIT_OUT   = 0x40
+	_SIZEOF_FUSE_INIT_OUT   = 0x18
 	_SIZEOF_FUSE_ATTR_OUT   = 0x68
 	_SIZEOF_FUSE_OPEN_OUT   = 0x10
 	_SIZEOF_FUSE_DIRENT     = 0x18
@@ -118,7 +115,6 @@ const (
 	FATTR_ATIME_NOW SetAttrValidType = 0x80
 	FATTR_MTIME_NOW SetAttrValidType = 0x100
 	FATTR_LOCKOWNER SetAttrValidType = 0x200
-	FATTR_CTIME     SetAttrValidType = 0x400
 )
 
 const (
@@ -156,8 +152,6 @@ type (
 		Max_background       uint16
 		Congestion_threshold uint16
 		Max_write            uint32
-		Time_gran            uint32
-		Unused               [9]uint32
 	}
 	FuseInterruptIn struct {
 		Unique uint64
@@ -244,10 +238,10 @@ type (
 		Owner     uint64
 		Atime     uint64
 		Mtime     uint64
-		Ctime     uint64
+		Unused2   uint64
 		Atimensec uint32
 		Mtimensec uint32
-		Ctimensec uint32
+		Unused3   uint32
 		Mode      FileModeType
 		Unused4   uint32
 		Uid       uint32

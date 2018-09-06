@@ -42,7 +42,4 @@ var FUSE_OPCODE_MSG = map[OpcodeType]string{
 	FUSE_NOTIFY_REPLY: "notify_reply",
 	FUSE_BATCH_FORGET: "batch_forget",
 	FUSE_FALLOCATE:    "fallocate",
-	FUSE_READDIRPLUS:  "readdirplus",
-	FUSE_RENAME2:      "rename2",
-	FUSE_LSEEK:        "lseek",
 }

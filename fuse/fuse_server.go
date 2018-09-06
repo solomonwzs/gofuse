@@ -61,11 +61,11 @@ func fuseInit(f *os.File) (err error) {
 
 	bodyRaw := buf[_SIZEOF_FUSE_IN_HEADER:]
 	body := (*FuseInitIn)(unsafe.Pointer(&bodyRaw[0]))
-	if body.Major != _FUSE_KERNEL_VERSION ||
-		body.Minor < _FUSE_KERNEL_VERSION {
+	if body.Major != FUSE_KERNEL_VERSION ||
+		body.Minor < FUSE_KERNEL_MINOR_VERSION {
 		return fmt.Errorf(
 			"gofuse: error fuse kernel version, expect %d.%d, got: %d.%d",
-			_FUSE_KERNEL_VERSION, _FUSE_KERNEL_MINOR_VERSION,
+			FUSE_KERNEL_VERSION, FUSE_KERNEL_MINOR_VERSION,
 			body.Major, body.Minor)
 	}
 
@@ -78,8 +78,8 @@ func fuseInit(f *os.File) (err error) {
 	rheader.Error = 0
 	rheader.Unique = header.Unique
 
-	rbody.Major = _FUSE_KERNEL_VERSION
-	rbody.Minor = _FUSE_KERNEL_MINOR_VERSION
+	rbody.Major = FUSE_KERNEL_VERSION
+	rbody.Minor = FUSE_KERNEL_MINOR_VERSION
 	rbody.Max_readahead = _MAX_BUFFER_SIZE
 	rbody.Flags = 0
 	rbody.Max_background = 0

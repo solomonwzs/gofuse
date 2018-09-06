@@ -21,6 +21,11 @@ package fuse
 import "C"
 import "syscall"
 
+const (
+	FUSE_KERNEL_VERSION       = 7
+	FUSE_KERNEL_MINOR_VERSION = 26
+)
+
 type (
 	OpcodeType       uint32
 	OpenOutFlagType  uint32

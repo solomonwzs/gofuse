@@ -72,7 +72,7 @@ func mount(mountpoint string, conf *MountConfig) (
 	argv := []string{_CMD_FUSERMOUNT, "--", mountpoint}
 	proc, err := os.StartProcess(_CMD_FUSERMOUNT, argv,
 		&os.ProcAttr{
-			Env:   []string{"_FUSE_COMMFD=3"},
+			Env:   []string{fmt.Sprintf("_FUSE_COMMFD=%d", remote.Fd())},
 			Files: []*os.File{os.Stdin, os.Stdout, os.Stderr, remote},
 		})
 	if err != nil {

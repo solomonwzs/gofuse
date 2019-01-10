@@ -18,6 +18,14 @@ var (
 	_GID  uint32
 )
 
+const _C_CODE = `
+#include <stdio.h>
+int main(int argc, char **argv) {
+printf("hello world\n");
+return 0;
+}
+`
+
 type sampleFile struct {
 	buf  []byte
 	name string
@@ -98,7 +106,8 @@ func (s *sampleFile) WriteAt(b []byte, off int64) (n int, err error) {
 		return 0, ERR_ILLEGAL_OPT
 	}
 	if off > int64(len(s.buf)) {
-		return 0, ERR_ILLEGAL_OPT
+		zerob := make([]byte, off-int64(len(s.buf)))
+		s.buf = append(s.buf, zerob...)
 	}
 
 	if off+int64(len(b)) > int64(len(s.buf)) {
@@ -140,13 +149,13 @@ func NewExampleSimpleFS() *SimpleFS {
 	fs.FTree.NewNode(fuse.ROOT_INODE_ID,
 		newSampleFile("world", fuse.S_IFDIR|0755, _UID, _GID))
 	f0 := fs.FTree.NewNode(fuse.ROOT_INODE_ID,
-		newSampleFile("file0.txt", fuse.S_IFREG|0644,
+		newSampleFile("simple.c", fuse.S_IFREG|0644,
 			_UID, _GID))
 	f1 := fs.FTree.NewNode(dirHello.Ino(),
-		newSampleFile("file1.txt", fuse.S_IFREG|0644,
+		newSampleFile("file.txt", fuse.S_IFREG|0644,
 			_UID, _GID))
-	f0.WriteAt([]byte("1234567890"), 0)
-	f1.WriteAt([]byte("qwertyuiop"), 0)
+	f0.WriteAt([]byte(_C_CODE), 0)
+	f1.WriteAt([]byte("1234567890"), 0)
 
 	return fs
 }
@@ -194,8 +203,8 @@ func (fs *SimpleFS) Open(
 		return fuse.ENOENT
 	}
 
-	out.Fh = 1
-	out.Flags = fuse.FOPEN_DIRECT_IO | fuse.FOPEN_NONSEEKABLE
+	// out.Flags = fuse.FOPEN_DIRECT_IO | fuse.FOPEN_NONSEEKABLE
+	out.Flags = fuse.FOPEN_DIRECT_IO
 	return
 }
 

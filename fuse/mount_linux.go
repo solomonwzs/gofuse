@@ -3,7 +3,6 @@ package fuse
 import (
 	"bytes"
 	"fmt"
-	"net"
 	"os"
 	"os/exec"
 	"syscall"
@@ -19,25 +18,10 @@ func newSocketpair() (f0, f1 *os.File, err error) {
 	return
 }
 
-func getConnFromSocket(socket *os.File) (fd int, err error) {
-	conn, err := net.FileConn(socket)
-	if err != nil {
-		return
-	}
-	defer conn.Close()
-
-	uconn, ok := conn.(*net.UnixConn)
-	if !ok {
-		err = fmt.Errorf("gofuse: expected UnixConn, got %T", conn)
-		return
-	}
-
+func getConnFromSocket(sock int) (fd int, err error) {
 	buf := make([]byte, 32)
 	oob := make([]byte, 32)
-	_, oobn, _, _, err := uconn.ReadMsgUnix(buf, oob)
-	if err != nil {
-		return
-	}
+	_, oobn, _, _, err := syscall.Recvmsg(sock, buf, oob, 0)
 
 	scMsgs, err := syscall.ParseSocketControlMessage(oob[:oobn])
 	if err != nil {
@@ -62,18 +46,19 @@ func getConnFromSocket(socket *os.File) (fd int, err error) {
 
 func mount(mountpoint string, conf *MountConfig) (
 	f *os.File, err error) {
-	local, remote, err := newSocketpair()
+	fds, err := syscall.Socketpair(syscall.AF_UNIX, syscall.SOCK_STREAM, 0)
 	if err != nil {
 		return
 	}
-	defer local.Close()
-	defer remote.Close()
+	defer syscall.Close(fds[0])
+	defer syscall.Close(fds[1])
 
-	argv := []string{_CMD_FUSERMOUNT, "--", mountpoint}
+	argv := []string{_CMD_FUSERMOUNT, "-o", "rw,nodev,nosuid,sync",
+		"--", mountpoint}
+	syscall.Syscall(syscall.SYS_FCNTL, uintptr(fds[0]), uintptr(syscall.F_SETFD), 0)
 	proc, err := os.StartProcess(_CMD_FUSERMOUNT, argv,
 		&os.ProcAttr{
-			Env:   []string{fmt.Sprintf("_FUSE_COMMFD=%d", remote.Fd())},
-			Files: []*os.File{os.Stdin, os.Stdout, os.Stderr, remote},
+			Env: []string{fmt.Sprintf("_FUSE_COMMFD=%d", fds[0])},
 		})
 	if err != nil {
 		return
@@ -85,7 +70,7 @@ func mount(mountpoint string, conf *MountConfig) (
 		return nil, fmt.Errorf("fusermount exist: %v", state.Sys())
 	}
 
-	fd, err := getConnFromSocket(local)
+	fd, err := getConnFromSocket(fds[1])
 	if err != nil {
 		return
 	}

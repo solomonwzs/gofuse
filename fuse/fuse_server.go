@@ -44,11 +44,11 @@ func cutCString(buf []byte) (str []byte) {
 }
 
 func fuseInit(f *os.File) (err error) {
-	buf := make([]byte, _SIZEOF_FUSE_IN_HEADER+_SIZEOF_FUSE_INIT_IN)
+	buf := make([]byte, _MAX_BUFFER_SIZE)
 	n, err := f.Read(buf)
 	if err != nil {
 		return
-	} else if n != len(buf) {
+	} else if n != _SIZEOF_FUSE_IN_HEADER+_SIZEOF_FUSE_INIT_IN {
 		return errors.New("gofuse: error fuse request format")
 	}
 
